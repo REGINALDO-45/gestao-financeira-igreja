@@ -328,7 +328,7 @@ function buildCronUser(
     name: userInfo.name || "Manus Scheduled Task",
     email: null,
     loginMethod: null,
-    role: "user",
+    role: "admin",
     createdAt: now,
     updatedAt: now,
     lastSignedIn: now,
