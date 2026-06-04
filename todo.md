@@ -80,6 +80,6 @@
 - [ ] Testar filtros e buscas em tabelas
 
 ## Entrega
-- [x] Revisar todo o sistema
-- [x] Criar checkpoint final
-- [x] Entregar ao usuário
+- [ ] Revisar todo o sistema
+- [ ] Criar checkpoint final
+- [ ] Entregar ao usuário
