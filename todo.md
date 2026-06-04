@@ -60,10 +60,10 @@
 - [x] Criar procedures tRPC para gerar recibos
 
 ## Controle de Acesso e Permissões
-- [ ] Implementar verificação de perfil em todas as rotas
-- [ ] Restringir acesso a funcionalidades por perfil (admin > tesoureiro > visualizador)
-- [ ] Implementar proteção de procedures tRPC com adminProcedure, tesoureiroProcedure, etc.
-- [ ] Criar UI condicional baseada em perfil do usuário
+- [x] Implementar verificação de perfil em todas as rotas
+- [x] Restringir acesso a funcionalidades por perfil (admin > tesoureiro > visualizador)
+- [x] Implementar proteção de procedures tRPC com adminProcedure, tesoureiroProcedure, etc.
+- [x] Criar UI condicional baseada em perfil do usuário
 
 ## Layout e Navegação
 - [x] Implementar sidebar fixa com menu de navegação
@@ -73,13 +73,13 @@
 - [x] Implementar header com usuário logado e opção de logout
 
 ## Testes e Validação
-- [ ] Escrever testes vitest para procedures tRPC críticas
-- [ ] Testar fluxos de autenticação e autorização
+- [x] Escrever testes vitest para procedures tRPC críticas
+- [x] Testar fluxos de autenticação e autorização
 - [ ] Testar geração de relatórios e recibos
 - [ ] Validar responsividade em desktop, tablet e mobile
 - [ ] Testar filtros e buscas em tabelas
 
 ## Entrega
-- [ ] Revisar todo o sistema
-- [ ] Criar checkpoint final
-- [ ] Entregar ao usuário
+- [x] Revisar todo o sistema
+- [x] Criar checkpoint final
+- [x] Entregar ao usuário

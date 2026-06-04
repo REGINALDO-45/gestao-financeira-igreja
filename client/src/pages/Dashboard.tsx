@@ -16,10 +16,12 @@ import {
 } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
 export default function Dashboard() {
+  const { user } = useAuthGuard();
   const { data: entries, isLoading: entriesLoading } = trpc.entries.list.useQuery();
   const { data: expenses, isLoading: expensesLoading } = trpc.expenses.list.useQuery();
 
@@ -104,6 +106,11 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral da situação financeira</p>
+          {user && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Perfil: <span className="font-semibold capitalize">{user.role}</span>
+            </p>
+          )}
         </div>
 
         {/* Cards de Saldo */}

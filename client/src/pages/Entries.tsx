@@ -29,8 +29,10 @@ import {
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 
 export default function Entries() {
+  const { user } = useAuthGuard();
   const [open, setOpen] = useState(false);
   const { data: entries, isLoading } = trpc.entries.list.useQuery();
   const { data: members } = trpc.members.list.useQuery();
@@ -90,13 +92,14 @@ export default function Entries() {
             <h1 className="text-3xl font-bold">Entradas</h1>
             <p className="text-muted-foreground">Dízimos, ofertas e outras receitas</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Entrada
-              </Button>
-            </DialogTrigger>
+          {isTreasurer(user?.role) && (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Entrada
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Registrar Nova Entrada</DialogTitle>
@@ -202,8 +205,9 @@ export default function Entries() {
                   Registrar Entrada
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <Card>
