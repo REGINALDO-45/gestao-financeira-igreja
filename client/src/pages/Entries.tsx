@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 
@@ -38,6 +38,13 @@ export default function Entries() {
   const { data: members } = trpc.members.list.useQuery();
   const createEntry = trpc.entries.create.useMutation();
 
+  // Filtros
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState("");
+  const [filterMemberId, setFilterMemberId] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().split('T')[0],
     category: "dizimo",
@@ -47,6 +54,31 @@ export default function Entries() {
     cultoSunday: "",
     description: "",
   });
+
+  const filteredEntries = useMemo(() => {
+    if (!entries) return [];
+
+    return entries.filter((entry) => {
+      if (filterCategory && filterCategory !== "all" && entry.category !== filterCategory) return false;
+      if (filterPaymentMethod && filterPaymentMethod !== "all" && entry.paymentMethod !== filterPaymentMethod) return false;
+      if (filterMemberId && filterMemberId !== "all" && entry.memberId?.toString() !== filterMemberId) return false;
+
+      if (filterDateFrom) {
+        const entryDate = new Date(entry.entryDate);
+        const fromDate = new Date(filterDateFrom);
+        if (entryDate < fromDate) return false;
+      }
+
+      if (filterDateTo) {
+        const entryDate = new Date(entry.entryDate);
+        const toDate = new Date(filterDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (entryDate > toDate) return false;
+      }
+
+      return true;
+    });
+  }, [entries, filterCategory, filterPaymentMethod, filterMemberId, filterDateFrom, filterDateTo]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +106,16 @@ export default function Entries() {
     }
   };
 
+  const clearFilters = () => {
+    setFilterCategory("all");
+    setFilterPaymentMethod("all");
+    setFilterMemberId("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
+  const hasActiveFilters = (filterCategory && filterCategory !== "all") || (filterPaymentMethod && filterPaymentMethod !== "all") || (filterMemberId && filterMemberId !== "all") || filterDateFrom || filterDateTo;
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -100,122 +142,226 @@ export default function Entries() {
                   Nova Entrada
                 </Button>
               </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Registrar Nova Entrada</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={onSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="entryDate">Data</Label>
-                  <Input
-                    id="entryDate"
-                    type="date"
-                    value={formData.entryDate}
-                    onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })}
-                  />
-                </div>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Registrar Nova Entrada</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={onSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="entryDate">Data</Label>
+                    <Input
+                      id="entryDate"
+                      type="date"
+                      value={formData.entryDate}
+                      onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as any })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dizimo">Dízimo</SelectItem>
-                      <SelectItem value="oferta">Oferta</SelectItem>
-                      <SelectItem value="oferta_especial">Oferta Especial</SelectItem>
-                      <SelectItem value="campanha">Campanha</SelectItem>
-                      <SelectItem value="missoes">Missões</SelectItem>
-                      <SelectItem value="construcao">Construção</SelectItem>
-                      <SelectItem value="bazar">Bazar</SelectItem>
-                      <SelectItem value="almoco_beneficente">Almoço Beneficente</SelectItem>
-                      <SelectItem value="cantina">Cantina</SelectItem>
-                      <SelectItem value="doacao">Doação</SelectItem>
-                      <SelectItem value="outras_receitas">Outras Receitas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label htmlFor="category">Categoria</Label>
+                    <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dizimo">Dízimo</SelectItem>
+                        <SelectItem value="oferta">Oferta</SelectItem>
+                        <SelectItem value="oferta_especial">Oferta Especial</SelectItem>
+                        <SelectItem value="campanha">Campanha</SelectItem>
+                        <SelectItem value="missoes">Missões</SelectItem>
+                        <SelectItem value="construcao">Construção</SelectItem>
+                        <SelectItem value="bazar">Bazar</SelectItem>
+                        <SelectItem value="almoco_beneficente">Almoço Beneficente</SelectItem>
+                        <SelectItem value="cantina">Cantina</SelectItem>
+                        <SelectItem value="doacao">Doação</SelectItem>
+                        <SelectItem value="outras_receitas">Outras Receitas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <Label htmlFor="amount">Valor (R$)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="amount">Valor (R$)</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
-                  <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as any })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a forma de pagamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="transferencia">Transferência</SelectItem>
-                      <SelectItem value="cartao">Cartão</SelectItem>
-                      <SelectItem value="deposito">Depósito</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                    <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a forma de pagamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pix">PIX</SelectItem>
+                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                        <SelectItem value="transferencia">Transferência</SelectItem>
+                        <SelectItem value="cartao">Cartão</SelectItem>
+                        <SelectItem value="deposito">Depósito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <Label htmlFor="memberId">Membro (Opcional)</Label>
-                  <Select value={formData.memberId} onValueChange={(value) => setFormData({ ...formData, memberId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um membro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members?.map((member) => (
-                        <SelectItem key={member.id} value={member.id.toString()}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label htmlFor="memberId">Membro (Opcional)</Label>
+                    <Select value={formData.memberId} onValueChange={(value) => setFormData({ ...formData, memberId: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um membro" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members?.map((member) => (
+                          <SelectItem key={member.id} value={member.id.toString()}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <Label htmlFor="cultoSunday">Culto/Domingo</Label>
-                  <Input
-                    id="cultoSunday"
-                    placeholder="Ex: Domingo, 26 de Maio"
-                    value={formData.cultoSunday}
-                    onChange={(e) => setFormData({ ...formData, cultoSunday: e.target.value })}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="cultoSunday">Culto/Domingo</Label>
+                    <Input
+                      id="cultoSunday"
+                      placeholder="Ex: Domingo, 26 de Maio"
+                      value={formData.cultoSunday}
+                      onChange={(e) => setFormData({ ...formData, cultoSunday: e.target.value })}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="description">Observações</Label>
-                  <Input
-                    id="description"
-                    placeholder="Observações adicionais"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="description">Observações</Label>
+                    <Input
+                      id="description"
+                      placeholder="Observações adicionais"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
+                  </div>
 
-                <Button type="submit" className="w-full">
-                  Registrar Entrada
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full">
+                    Registrar Entrada
+                  </Button>
+                </form>
               </DialogContent>
             </Dialog>
           )}
         </div>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Filtros</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <Label htmlFor="filter-category" className="text-sm">Categoria</Label>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger id="filter-category">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="dizimo">Dízimo</SelectItem>
+                    <SelectItem value="oferta">Oferta</SelectItem>
+                    <SelectItem value="oferta_especial">Oferta Especial</SelectItem>
+                    <SelectItem value="campanha">Campanha</SelectItem>
+                    <SelectItem value="missoes">Missões</SelectItem>
+                    <SelectItem value="construcao">Construção</SelectItem>
+                    <SelectItem value="bazar">Bazar</SelectItem>
+                    <SelectItem value="almoco_beneficente">Almoço Beneficente</SelectItem>
+                    <SelectItem value="cantina">Cantina</SelectItem>
+                    <SelectItem value="doacao">Doação</SelectItem>
+                    <SelectItem value="outras_receitas">Outras Receitas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-payment" className="text-sm">Forma de Pagamento</Label>
+                <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+                  <SelectTrigger id="filter-payment">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="transferencia">Transferência</SelectItem>
+                    <SelectItem value="cartao">Cartão</SelectItem>
+                    <SelectItem value="deposito">Depósito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-member" className="text-sm">Membro</Label>
+                <Select value={filterMemberId} onValueChange={setFilterMemberId}>
+                  <SelectTrigger id="filter-member">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {members?.map((member) => (
+                      <SelectItem key={member.id} value={member.id.toString()}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-date-from" className="text-sm">Data De</Label>
+                <Input
+                  id="filter-date-from"
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="filter-date-to" className="text-sm">Data Até</Label>
+                <Input
+                  id="filter-date-to"
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {filteredEntries.length} resultado(s) encontrado(s)
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar Filtros
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Lançamentos de Entradas</CardTitle>
           </CardHeader>
           <CardContent>
-            {entries && entries.length > 0 ? (
+            {filteredEntries && filteredEntries.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -229,7 +375,7 @@ export default function Entries() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry) => (
+                    {filteredEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
                           {new Date(entry.entryDate).toLocaleDateString("pt-BR")}

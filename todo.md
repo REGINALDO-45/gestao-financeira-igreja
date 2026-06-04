@@ -17,7 +17,7 @@
 - [x] Criar formulário de registro de dízimos e ofertas
 - [x] Implementar campos: data, culto/domingo, categoria, forma de pagamento, membro
 - [x] Criar tabela filtrável de entradas
-- [ ] Implementar filtros por data, categoria, membro, forma de pagamento
+- [x] Implementar filtros por data, categoria, membro, forma de pagamento
 - [x] Criar procedures tRPC para CRUD de entradas
 
 ## Módulo de Saídas
