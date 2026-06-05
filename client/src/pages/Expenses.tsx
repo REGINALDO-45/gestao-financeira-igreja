@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,21 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 
 export default function Expenses() {
+  const { user } = useAuthGuard();
   const [open, setOpen] = useState(false);
+  
+  // Filtros
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCostCenter, setFilterCostCenter] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
   const [formData, setFormData] = useState({
     expenseDate: new Date().toISOString().split("T")[0],
     category: "agua",
@@ -47,6 +57,31 @@ export default function Expenses() {
   const { data: expenses, isLoading } = trpc.expenses.list.useQuery();
   const { data: costCenters } = trpc.costCenters.list.useQuery();
   const createExpense = trpc.expenses.create.useMutation();
+
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
+
+    return expenses.filter((expense) => {
+      if (filterCategory && filterCategory !== "all" && expense.category !== filterCategory) return false;
+      if (filterStatus && filterStatus !== "all" && expense.paymentStatus !== filterStatus) return false;
+      if (filterCostCenter && filterCostCenter !== "all" && expense.costCenterId?.toString() !== filterCostCenter) return false;
+
+      if (filterDateFrom) {
+        const expenseDate = new Date(expense.expenseDate);
+        const fromDate = new Date(filterDateFrom);
+        if (expenseDate < fromDate) return false;
+      }
+
+      if (filterDateTo) {
+        const expenseDate = new Date(expense.expenseDate);
+        const toDate = new Date(filterDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (expenseDate > toDate) return false;
+      }
+
+      return true;
+    });
+  }, [expenses, filterCategory, filterStatus, filterCostCenter, filterDateFrom, filterDateTo]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +124,16 @@ export default function Expenses() {
     }
   };
 
+  const clearFilters = () => {
+    setFilterCategory("all");
+    setFilterStatus("all");
+    setFilterCostCenter("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
+  const hasActiveFilters = (filterCategory && filterCategory !== "all") || (filterStatus && filterStatus !== "all") || (filterCostCenter && filterCostCenter !== "all") || filterDateFrom || filterDateTo;
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -105,156 +150,248 @@ export default function Expenses() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Saídas</h1>
-            <p className="text-muted-foreground">Despesas e compromissos financeiros</p>
+            <p className="text-muted-foreground">Despesas e saídas financeiras</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Saída
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Registrar Nova Despesa</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={onSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="expenseDate">Data</Label>
-                  <Input
-                    id="expenseDate"
-                    type="date"
-                    value={formData.expenseDate}
-                    onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="agua">Água</SelectItem>
-                      <SelectItem value="energia">Energia</SelectItem>
-                      <SelectItem value="internet">Internet</SelectItem>
-                      <SelectItem value="aluguel">Aluguel</SelectItem>
-                      <SelectItem value="material_limpeza">Material de Limpeza</SelectItem>
-                      <SelectItem value="evangelismo">Evangelismo</SelectItem>
-                      <SelectItem value="missoes">Missões</SelectItem>
-                      <SelectItem value="construcao">Construção</SelectItem>
-                      <SelectItem value="equipamentos">Equipamentos</SelectItem>
-                      <SelectItem value="manutencao">Manutenção</SelectItem>
-                      <SelectItem value="outras_despesas">Outras Despesas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="amount">Valor (R$)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
-                  <Select
-                    value={formData.paymentMethod}
-                    onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a forma de pagamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="transferencia">Transferência</SelectItem>
-                      <SelectItem value="cartao">Cartão</SelectItem>
-                      <SelectItem value="deposito">Depósito</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="paymentStatus">Status de Pagamento</Label>
-                  <Select
-                    value={formData.paymentStatus}
-                    onValueChange={(value) => setFormData({ ...formData, paymentStatus: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="pago">Pago</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="supplier">Fornecedor</Label>
-                  <Input
-                    id="supplier"
-                    placeholder="Nome do fornecedor"
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="costCenterId">Centro de Custo (Opcional)</Label>
-                  <Select
-                    value={formData.costCenterId}
-                    onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um centro de custo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {costCenters?.map((cc) => (
-                        <SelectItem key={cc.id} value={cc.id.toString()}>
-                          {cc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Observações</Label>
-                  <Input
-                    id="description"
-                    placeholder="Observações adicionais"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full">
-                  Registrar Despesa
+          {isTreasurer(user?.role) && (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Despesa
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Registrar Nova Despesa</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={onSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="expenseDate">Data</Label>
+                    <Input
+                      id="expenseDate"
+                      type="date"
+                      value={formData.expenseDate}
+                      onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="category">Categoria</Label>
+                    <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="agua">Água</SelectItem>
+                        <SelectItem value="energia">Energia</SelectItem>
+                        <SelectItem value="internet">Internet</SelectItem>
+                        <SelectItem value="aluguel">Aluguel</SelectItem>
+                        <SelectItem value="material_limpeza">Material de Limpeza</SelectItem>
+                        <SelectItem value="evangelismo">Evangelismo</SelectItem>
+                        <SelectItem value="missoes">Missões</SelectItem>
+                        <SelectItem value="construcao">Construção</SelectItem>
+                        <SelectItem value="equipamentos">Equipamentos</SelectItem>
+                        <SelectItem value="manutencao">Manutenção</SelectItem>
+                        <SelectItem value="outras_despesas">Outras Despesas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="amount">Valor (R$)</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                    <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a forma de pagamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pix">PIX</SelectItem>
+                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                        <SelectItem value="transferencia">Transferência</SelectItem>
+                        <SelectItem value="cartao">Cartão</SelectItem>
+                        <SelectItem value="deposito">Depósito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="paymentStatus">Status de Pagamento</Label>
+                    <Select value={formData.paymentStatus} onValueChange={(value) => setFormData({ ...formData, paymentStatus: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="supplier">Fornecedor</Label>
+                    <Input
+                      id="supplier"
+                      placeholder="Nome do fornecedor"
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="costCenterId">Centro de Custo (Opcional)</Label>
+                    <Select value={formData.costCenterId} onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {costCenters?.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id.toString()}>
+                            {cc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Observações</Label>
+                    <Input
+                      id="description"
+                      placeholder="Observações adicionais"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    Registrar Despesa
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Filtros</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <Label htmlFor="filter-category" className="text-sm">Categoria</Label>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger id="filter-category">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="agua">Água</SelectItem>
+                    <SelectItem value="energia">Energia</SelectItem>
+                    <SelectItem value="internet">Internet</SelectItem>
+                    <SelectItem value="aluguel">Aluguel</SelectItem>
+                    <SelectItem value="material_limpeza">Material de Limpeza</SelectItem>
+                    <SelectItem value="evangelismo">Evangelismo</SelectItem>
+                    <SelectItem value="missoes">Missões</SelectItem>
+                    <SelectItem value="construcao">Construção</SelectItem>
+                    <SelectItem value="equipamentos">Equipamentos</SelectItem>
+                    <SelectItem value="manutencao">Manutenção</SelectItem>
+                    <SelectItem value="outras_despesas">Outras Despesas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-status" className="text-sm">Status de Pagamento</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger id="filter-status">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-cost-center" className="text-sm">Centro de Custo</Label>
+                <Select value={filterCostCenter} onValueChange={setFilterCostCenter}>
+                  <SelectTrigger id="filter-cost-center">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {costCenters?.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id.toString()}>
+                        {cc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-date-from" className="text-sm">Data De</Label>
+                <Input
+                  id="filter-date-from"
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="filter-date-to" className="text-sm">Data Até</Label>
+                <Input
+                  id="filter-date-to"
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {filteredExpenses.length} resultado(s) encontrado(s)
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar Filtros
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Lançamentos de Saídas</CardTitle>
           </CardHeader>
           <CardContent>
-            {expenses && expenses.length > 0 ? (
+            {filteredExpenses && filteredExpenses.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -263,12 +400,12 @@ export default function Expenses() {
                       <TableHead>Categoria</TableHead>
                       <TableHead>Fornecedor</TableHead>
                       <TableHead>Valor</TableHead>
-                      <TableHead>Forma de Pagamento</TableHead>
+                      <TableHead>Centro de Custo</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {expenses.map((expense) => (
+                    {filteredExpenses.map((expense) => (
                       <TableRow key={expense.id}>
                         <TableCell>
                           {new Date(expense.expenseDate).toLocaleDateString("pt-BR")}
@@ -280,11 +417,12 @@ export default function Expenses() {
                         <TableCell className="font-semibold">
                           R$ {parseFloat(expense.amount).toFixed(2)}
                         </TableCell>
-                        <TableCell className="capitalize">{expense.paymentMethod}</TableCell>
+                        <TableCell>{expense.costCenterId ? "CC ID: " + expense.costCenterId : "-"}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(expense.paymentStatus)}>
-                            {expense.paymentStatus.charAt(0).toUpperCase() +
-                              expense.paymentStatus.slice(1)}
+                            {expense.paymentStatus === "pago" && "Pago"}
+                            {expense.paymentStatus === "pendente" && "Pendente"}
+                            {expense.paymentStatus === "cancelado" && "Cancelado"}
                           </Badge>
                         </TableCell>
                       </TableRow>

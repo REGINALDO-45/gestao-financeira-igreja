@@ -24,7 +24,7 @@
 - [x] Criar formulário de registro de despesas
 - [x] Implementar campos: data, categoria, centro de custo, fornecedor, valor, status
 - [x] Criar tabela filtrável de saídas
-- [ ] Implementar filtros por data, categoria, centro de custo, status
+- [x] Implementar filtros por data, categoria, centro de custo, status
 - [x] Criar procedures tRPC para CRUD de saídas
 
 ## Gestão de Membros
