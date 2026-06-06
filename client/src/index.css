@@ -43,39 +43,40 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
+  /* Methodist Colors - Navy Blue and Red */
+  --primary: oklch(0.35 0.15 250); /* Navy Blue */
+  --primary-foreground: oklch(0.98 0 0); /* White */
+  --sidebar-primary: oklch(0.25 0.12 250); /* Dark Navy */
+  --sidebar-primary-foreground: oklch(0.98 0 0); /* White */
+  --accent: oklch(0.55 0.2 12); /* Methodist Red */
+  --accent-foreground: oklch(0.98 0 0); /* White */
+  --chart-1: oklch(0.5 0.15 120); /* Green for Tithes */
+  --chart-2: oklch(0.55 0.2 12); /* Red for Offerings */
+  --chart-3: oklch(0.5 0.15 250); /* Blue for Special Offerings */
+  --chart-4: oklch(0.6 0.15 50); /* Orange for Events */
+  --chart-5: oklch(0.6 0.08 250); /* Gray for Others */
   --radius: 0.65rem;
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.2 0.01 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.01 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.01 250);
-  --secondary: oklch(0.95 0.01 250);
-  --secondary-foreground: oklch(0.3 0.01 250);
-  --muted: oklch(0.92 0.01 250);
-  --muted-foreground: oklch(0.5 0.01 250);
-  --accent: oklch(0.45 0.2 250);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.9 0.01 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.45 0.2 250);
-  --sidebar: oklch(0.15 0.05 250);
-  --sidebar-foreground: oklch(0.95 0.01 250);
-  --sidebar-accent: oklch(0.45 0.2 250);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.05 250);
-  --sidebar-ring: oklch(0.45 0.2 250);
+  --background: oklch(0.98 0 0); /* Light background */
+  --foreground: oklch(0.25 0.08 250); /* Dark text */
+  --card: oklch(1 0 0); /* White cards */
+  --card-foreground: oklch(0.25 0.08 250); /* Dark text */
+  --popover: oklch(1 0 0); /* White */
+  --popover-foreground: oklch(0.25 0.08 250); /* Dark text */
+  --secondary: oklch(0.95 0.01 250); /* Light gray */
+  --secondary-foreground: oklch(0.3 0.01 250); /* Dark text */
+  --muted: oklch(0.92 0.01 250); /* Muted gray */
+  --muted-foreground: oklch(0.5 0.01 250); /* Medium gray text */
+  --destructive: oklch(0.55 0.2 12); /* Red */
+  --destructive-foreground: oklch(0.98 0 0); /* White */
+  --border: oklch(0.9 0.01 250); /* Light border */
+  --input: oklch(0.95 0.01 250); /* Light input */
+  --ring: oklch(0.35 0.15 250); /* Navy ring */
+  --sidebar: oklch(0.15 0.08 250); /* Very dark navy */
+  --sidebar-foreground: oklch(0.98 0 0); /* White text */
+  --sidebar-accent: oklch(0.55 0.2 12); /* Red accent */
+  --sidebar-accent-foreground: oklch(0.98 0 0); /* White */
+  --sidebar-border: oklch(0.25 0.08 250); /* Dark border */
+  --sidebar-ring: oklch(0.35 0.15 250); /* Navy ring */
 }
 
 .dark {
