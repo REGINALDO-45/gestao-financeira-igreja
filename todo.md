@@ -72,6 +72,13 @@
 - [x] Criar navegação entre módulos (Dashboard, Entradas, Saídas, Membros, Centros de Custo, Relatórios, Recibos, Configurações)
 - [x] Implementar header com usuário logado e opção de logout
 
+## Design Methodist
+- [x] Aplicar paleta de cores Methodist (azul escuro e vermelho)
+- [x] Atualizar sidebar com logo e versículo bíblico
+- [x] Implementar menu items com destaque em vermelho quando ativos
+- [x] Criar badges coloridas para categorias (verde, vermelho, azul, laranja)
+- [x] Aplicar novo design a todos os componentes
+
 ## Testes e Validação
 - [x] Escrever testes vitest para procedures tRPC críticas
 - [x] Testar fluxos de autenticação e autorização
