@@ -49,7 +49,7 @@
 ## Relatórios
 - [x] Implementar Relatório de Entradas Dominical (cabeçalho, tabelas, total, versículo, rodapé)
 - [x] Implementar Relatório Financeiro-Clerical (gráficos, resumo, assinaturas)
-- [ ] Integrar exportação em PDF para ambos os relatórios
+- [x] Integrar exportação em PDF para ambos os relatórios
 - [x] Criar procedures tRPC para gerar relatórios
 - [x] Implementar consumo automático de dados das Configurações da Igreja
 

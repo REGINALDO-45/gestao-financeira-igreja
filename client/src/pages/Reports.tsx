@@ -174,9 +174,13 @@ export default function Reports() {
         jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
       };
 
-      if (window.html2pdf) {
-        window.html2pdf().set(options).from(element).save();
+      if (!window.html2pdf) {
+        toast.error("Biblioteca de PDF não carregada. Tente novamente.");
+        return;
       }
+      await new Promise((resolve) => {
+        window.html2pdf().set(options).from(element).save().then(resolve);
+      });
       toast.success("Relatório de Entradas gerado com sucesso!");
     } catch (error) {
       console.error(error);
@@ -362,9 +366,13 @@ export default function Reports() {
         jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
       };
 
-      if (window.html2pdf) {
-        window.html2pdf().set(options).from(element).save();
+      if (!window.html2pdf) {
+        toast.error("Biblioteca de PDF não carregada. Tente novamente.");
+        return;
       }
+      await new Promise((resolve) => {
+        window.html2pdf().set(options).from(element).save().then(resolve);
+      });
       toast.success("Relatório Financeiro-Clerical gerado com sucesso!");
     } catch (error) {
       console.error(error);
