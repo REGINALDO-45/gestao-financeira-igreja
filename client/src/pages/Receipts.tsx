@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, Printer } from "lucide-react";
+import { Loader2, Plus, Printer, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Receipts() {
@@ -80,10 +80,91 @@ export default function Receipts() {
     }
   };
 
-  const handlePrint = (receipt: { id: number; receiptNumber: string }) => {
-    // Simular impressão de recibo
-    toast.success("Recibo enviado para impressão!");
-    console.log("Imprimindo recibo:", receipt);
+  const handlePrintPDF = (receipt: any) => {
+    if (!window.html2pdf) {
+      toast.error("Biblioteca de PDF não carregada");
+      return;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+            .receipt-container { max-width: 600px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1a3a52; padding-bottom: 20px; }
+            .header h1 { color: #1a3a52; margin: 5px 0; font-size: 20px; }
+            .header p { margin: 3px 0; font-size: 11px; }
+            .receipt-number { text-align: center; font-weight: bold; font-size: 14px; margin: 20px 0; }
+            .info-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 12px; }
+            .info-label { font-weight: bold; }
+            .details { margin: 30px 0; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; }
+            .detail-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 12px; }
+            .amount-box { background-color: #1a3a52; color: white; padding: 20px; text-align: center; margin: 30px 0; font-size: 18px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 40px; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 20px; }
+            .signature-area { margin-top: 50px; text-align: center; }
+            .signature-line { border-top: 1px solid #333; width: 200px; margin: 30px auto 5px; }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-container">
+            <div class="header">
+              <h1>IGREJA METODISTA MONTE ALEGRE</h1>
+              <p>Servir a Deus é transformar vidas!</p>
+            </div>
+            
+            <div class="receipt-number">
+              RECIBO Nº ${receipt.receiptNumber}
+            </div>
+            
+            <div class="info-row">
+              <div><span class="info-label">Membro:</span> ${receipt.memberName || "N/A"}</div>
+              <div><span class="info-label">Data:</span> ${new Date(receipt.issuedDate).toLocaleDateString("pt-BR")}</div>
+            </div>
+            
+            <div class="details">
+              <div class="detail-row">
+                <span>Categoria:</span>
+                <span>${receipt.category || "N/A"}</span>
+              </div>
+              <div class="detail-row">
+                <span>Descrição:</span>
+                <span>${receipt.description || "Contribuição"}</span>
+              </div>
+            </div>
+            
+            <div class="amount-box">
+              Valor: R$ ${parseFloat(receipt.amount).toFixed(2)}
+            </div>
+            
+            <div class="signature-area">
+              <p style="font-size: 12px; margin-bottom: 20px;">Obrigado pela sua contribuição!</p>
+              <div class="signature-line"></div>
+              <p style="font-size: 11px; margin-top: 5px;">Assinatura do Tesoureiro</p>
+            </div>
+            
+            <div class="footer">
+              <p>Este recibo comprova a contribuição realizada à Igreja Metodista Monte Alegre.</p>
+              <p>Emitido em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const element = document.createElement("div");
+    element.innerHTML = htmlContent;
+    
+    const options = {
+      margin: 10,
+      filename: `Recibo_${receipt.receiptNumber}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
+    };
+
+    window.html2pdf().set(options).from(element).save();
+    toast.success("Recibo exportado com sucesso!");
   };
 
   if (isLoading) {
@@ -244,13 +325,13 @@ export default function Receipts() {
                           {new Date(receipt.issuedDate).toLocaleDateString("pt-BR")}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePrint(receipt)}
-                          >
-                            <Printer className="w-4 h-4" />
-                          </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePrintPDF(receipt)}
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
                         </TableCell>
                       </TableRow>
                     ))}

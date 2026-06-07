@@ -56,7 +56,7 @@
 ## Módulo de Recibos
 - [x] Criar template de recibo individual
 - [x] Implementar geração de recibos por contribuição
-- [ ] Implementar exportação/impressão de recibos em PDF
+- [ ] Implementar exportação/impressão de recibos em PDF (com listagem real)
 - [x] Criar procedures tRPC para gerar recibos
 
 ## Controle de Acesso e Permissões
