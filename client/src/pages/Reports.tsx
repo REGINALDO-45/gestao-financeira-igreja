@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { Loader2, FileText, Settings2 } from "lucide-react";
+import { Loader2, FileText, Settings2, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────────────────
@@ -58,6 +58,7 @@ const GRAY3 = [148, 163, 184] as [number, number, number];
 const LIGHT = [248, 250, 252] as [number, number, number];
 const WHITE = [255, 255, 255] as [number, number, number];
 const GREEN = [22, 163, 74]  as [number, number, number];
+const GOLD  = [242, 169, 0]  as [number, number, number];
 
 // ─────────────────────────────────────────────────────────
 // Draw a filled rounded rectangle (simple: use regular rect)
@@ -84,33 +85,176 @@ const brl = (n: number) =>
   "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ─────────────────────────────────────────────────────────
-// Draw church flame+cross icon inline at (x, y)
+// Draw the official Cross and Flame mark of The United Methodist Church —
+// reproduced (not reimagined) after the real emblem: a single flowing red
+// flame silhouette set to the left of, and slightly overlapping, a slim
+// dark Latin cross. Flat, modern mark — no circular seal/badge.
 // ─────────────────────────────────────────────────────────
+const FLAME = [217, 33, 38]  as [number, number, number];
+const INK   = [35, 35, 39]   as [number, number, number];
+
 const drawLogo = (doc: any, x: number, y: number, size: number = 12) => {
-  const s = size / 12;
-  // Red flame
-  doc.setFillColor(...RED);
-  doc.triangle(x + 4*s, y + size, x + 8*s, y + 2*s, x + 12*s, y + size, "F");
-  doc.setFillColor(220, 50, 50);
-  doc.triangle(x + 6*s, y + size, x + 9*s, y + 4*s, x + 12*s, y + size, "F");
-  // Navy cross
-  doc.setFillColor(...NAVY);
-  // Vertical bar
-  doc.rect(x + 5.5*s, y + 1*s, 2.5*s, 11*s, "F");
-  // Horizontal bar
-  doc.rect(x + 1*s, y + 4*s, 10*s, 2.5*s, "F");
+  const w = size;
+  const h = size * 1.32;
+
+  // ── Flame: one continuous silhouette traced as a closed bezier path —
+  // outer (left) edge sweeps up to a single tip; inner (right) edge curves
+  // back down in an S, pinching at a "waist" before flaring into the base ──
+  doc.setFillColor(...FLAME);
+  const baseX = x + w * 0.20;
+  const baseY = y + h * 0.93;
+  doc.lines(
+    [
+      // outer/left edge: rises and bows outward, narrowing to the top point
+      [-w * 0.22, -h * 0.16, -w * 0.12, -h * 0.52, w * 0.14, -h * 0.75],
+      // from the tip, the inner/right edge bulges out (the flame's "lobe")
+      [w * 0.24, h * 0.17, w * 0.07, h * 0.32, -w * 0.015, h * 0.39],
+      // ...then pinches into the waist and flares back out to close at the base
+      [-w * 0.095, h * 0.095, -w * 0.06, h * 0.205, 0, h * 0.32],
+    ],
+    baseX,
+    baseY,
+    [1, 1],
+    "F",
+    true
+  );
+
+  // ── Cross: slim dark Latin cross set to the right, overlapping the flame ──
+  doc.setFillColor(...INK);
+  const barT    = w * 0.085;
+  const crossCX = x + w * 0.64;
+  const vTop    = y + h * 0.05;
+  const vLen    = h * 0.93;
+  doc.rect(crossCX - barT / 2, vTop, barT, vLen, "F");
+  const hBarW = w * 0.42;
+  doc.rect(crossCX - hBarW / 2, vTop + vLen * 0.20, hBarW, barT, "F");
 };
 
 // ─────────────────────────────────────────────────────────
 // Section header line (navy bar + white title)
 // ─────────────────────────────────────────────────────────
 const sectionHeader = (doc: any, x: number, y: number, w: number, title: string) => {
-  filledRect(doc, x, y, w, 7, NAVY);
+  filledRect(doc, x, y, w, 7.5, NAVY);
   doc.setTextColor(...WHITE);
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text(title.toUpperCase(), x + 3, y + 5);
+  doc.text(title.toUpperCase(), x + 3, y + 5.2);
   doc.setTextColor(...GRAY1);
+};
+
+// ─────────────────────────────────────────────────────────
+// Icon badges — circular bg + simple geometric glyph (drawing-primitives only)
+// ─────────────────────────────────────────────────────────
+const iconBadgeBase = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number]) => {
+  doc.setFillColor(...bg);
+  doc.circle(cx, cy, r, "F");
+};
+
+const iconPerson = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const headR = r * 0.26;
+  doc.circle(cx, cy - r * 0.32, headR, "F");
+  const sw = r * 0.85;
+  const nw = r * 0.34;
+  const topY = cy + r * 0.06;
+  const botY = cy + r * 0.62;
+  doc.triangle(cx - nw, topY, cx + nw, topY, cx - sw, botY, "F");
+  doc.triangle(cx + nw, topY, cx - sw, botY, cx + sw, botY, "F");
+};
+
+const iconHeart = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const lobeR = r * 0.26;
+  const offX = r * 0.27;
+  const lobeY = cy - r * 0.16;
+  doc.circle(cx - offX, lobeY, lobeR, "F");
+  doc.circle(cx + offX, lobeY, lobeR, "F");
+  doc.triangle(cx - r * 0.53, lobeY, cx + r * 0.53, lobeY, cx, cy + r * 0.5, "F");
+};
+
+const iconHandHeart = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const lobeR = r * 0.18;
+  const offX = r * 0.18;
+  const lobeY = cy - r * 0.4;
+  doc.circle(cx - offX, lobeY, lobeR, "F");
+  doc.circle(cx + offX, lobeY, lobeR, "F");
+  doc.triangle(cx - r * 0.36, lobeY, cx + r * 0.36, lobeY, cx, cy - r * 0.04, "F");
+  const handY = cy + r * 0.32;
+  doc.triangle(cx - r * 0.6, handY, cx, handY - r * 0.2, cx, handY + r * 0.2, "F");
+  doc.triangle(cx + r * 0.6, handY, cx, handY - r * 0.2, cx, handY + r * 0.2, "F");
+};
+
+const iconCalendar = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const w = r * 1.1;
+  const h = r * 0.95;
+  const x = cx - w / 2;
+  const y = cy - h / 2 + r * 0.08;
+  doc.rect(x, y, w, h, "F");
+  doc.setFillColor(...bg);
+  doc.rect(x + w * 0.12, y + h * 0.28, w * 0.76, h * 0.16, "F");
+  doc.setFillColor(...fg);
+  doc.rect(x - r * 0.05, y - r * 0.18, r * 0.16, r * 0.26, "F");
+  doc.rect(x + w - r * 0.11, y - r * 0.18, r * 0.16, r * 0.26, "F");
+};
+
+const iconBank = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const baseW = r * 1.3;
+  const baseY = cy + r * 0.42;
+  doc.rect(cx - baseW / 2, baseY, baseW, r * 0.16, "F");
+  doc.triangle(cx - baseW / 2, baseY, cx + baseW / 2, baseY, cx, cy - r * 0.5, "F");
+  const colW = r * 0.16;
+  const colY = cy - r * 0.06;
+  const colH = baseY - colY;
+  for (let i = -1; i <= 1; i++) {
+    doc.rect(cx + i * (baseW * 0.32) - colW / 2, colY, colW, colH, "F");
+  }
+};
+
+const iconWallet = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const w = r * 1.2;
+  const h = r * 0.8;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  doc.rect(x, y, w, h, "F");
+  doc.setFillColor(...bg);
+  doc.rect(x + w * 0.62, y + h * 0.32, w * 0.3, h * 0.36, "F");
+  doc.setFillColor(...fg);
+  doc.circle(x + w * 0.78, y + h * 0.5, r * 0.07, "F");
+};
+
+const iconArrowDown = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const sw = r * 0.22;
+  doc.rect(cx - sw / 2, cy - r * 0.5, sw, r * 0.65, "F");
+  doc.triangle(cx - r * 0.4, cy + r * 0.05, cx + r * 0.4, cy + r * 0.05, cx, cy + r * 0.55, "F");
+};
+
+const iconArrowUp = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const sw = r * 0.22;
+  doc.rect(cx - sw / 2, cy - r * 0.15, sw, r * 0.65, "F");
+  doc.triangle(cx - r * 0.4, cy - r * 0.05, cx + r * 0.4, cy - r * 0.05, cx, cy - r * 0.55, "F");
+};
+
+const iconCross = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
+  iconBadgeBase(doc, cx, cy, r, bg);
+  doc.setFillColor(...fg);
+  const barT = r * 0.32;
+  const barL = r * 1.25;
+  doc.rect(cx - barT / 2, cy - barL / 2, barT, barL, "F");
+  doc.rect(cx - barL / 2, cy - barL * 0.18 - barT / 2, barL, barT, "F");
 };
 
 // ─────────────────────────────────────────────────────────
@@ -122,23 +266,25 @@ const tableRow = (
   cols: { text: string; width: number; align?: "left" | "right" }[],
   isOdd: boolean,
   isBold: boolean = false,
-  rowBg?: [number,number,number]
+  rowBg?: [number,number,number],
+  rowH: number = 6
 ) => {
-  const h = 6;
+  const h = rowH;
   if (rowBg) filledRect(doc, x, y, w, h, rowBg);
   else if (isOdd) filledRect(doc, x, y, w, h, LIGHT);
   else filledRect(doc, x, y, w, h, WHITE);
 
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setFont("helvetica", isBold ? "bold" : "normal");
   doc.setTextColor(...GRAY1);
 
+  const baseline = y + h / 2 + 1.5;
   let cx = x + 2;
   for (const col of cols) {
     if (col.align === "right") {
-      doc.text(col.text, cx + col.width - 2, y + 4.2, { align: "right" });
+      doc.text(col.text, cx + col.width - 2, baseline, { align: "right" });
     } else {
-      doc.text(col.text, cx + 1, y + 4.2);
+      doc.text(col.text, cx + 1, baseline);
     }
     cx += col.width;
   }
@@ -159,213 +305,257 @@ const buildEntriesReport = async (
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const PW = 210; // page width mm
+  const PHFOOTER = 283; // y where the colour footer band starts
   const ML = 14;  // margin left
   const MR = 14;  // margin right
   const W  = PW - ML - MR;
-  let Y = 14;
+  let Y = 16;
 
   // ── HEADER ──
-  drawLogo(doc, ML, Y - 2, 14);
+  drawLogo(doc, ML, Y - 2, 16);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(...NAVY);
-  doc.text("Igreja Metodista", ML + 18, Y + 2);
-  doc.setFontSize(16);
-  doc.text("Monte Alegre", ML + 18, Y + 8);
+  doc.text("Igreja Metodista", ML + 21, Y + 2);
+  doc.setFontSize(18);
+  doc.text("Monte Alegre", ML + 21, Y + 9);
   doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(...GRAY2);
-  doc.text("Servir a Deus é transformar vidas!", ML + 18, Y + 13);
+  doc.text("Servir a Deus é transformar vidas!", ML + 21, Y + 14.5);
 
   // right side title
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(16);
   doc.setTextColor(...NAVY);
   doc.text("RELATÓRIO DE ENTRADAS", PW - MR, Y + 4, { align: "right" });
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(...RED);
-  doc.text("DÍZIMOS E OFERTAS POR DOMINGO", PW - MR, Y + 10, { align: "right" });
+  doc.text("DÍZIMOS E OFERTAS POR DOMINGO", PW - MR, Y + 10.5, { align: "right" });
   // red underline
   doc.setDrawColor(...RED);
   doc.setLineWidth(0.8);
-  doc.line(PW - MR - 52, Y + 12, PW - MR, Y + 12);
+  doc.line(PW - MR - 58, Y + 12.5, PW - MR, Y + 12.5);
 
-  Y += 18;
+  Y += 21;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.4);
   doc.line(ML, Y, PW - MR, Y);
-  Y += 4;
+  Y += 5;
 
-  // ── METADATA CARD ──
-  cardBox(doc, ML, Y, W, 14, LIGHT);
-  const metaW = W / 3;
+  // ── METADATA CARDS (3 separate badge cards) ──
+  const metaW = (W - 6) / 3;
+  const metaH = 16;
+  const metaBadgeR = 6;
 
-  const metaItem = (label: string, value: string, ox: number) => {
+  const metaCard = (ox: number, icon: typeof iconPerson, label: string, value: string) => {
+    const bx = ML + ox;
+    cardBox(doc, bx, Y, metaW, metaH, WHITE);
+    const badgeCx = bx + 9;
+    const badgeCy = Y + metaH / 2;
+    icon(doc, badgeCx, badgeCy, metaBadgeR, NAVY, WHITE);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...GRAY2);
-    doc.text(label.toUpperCase(), ML + ox + 6, Y + 5);
+    doc.text(label.toUpperCase(), badgeCx + metaBadgeR + 4, Y + 6.5);
+
+    // shrink-to-fit: long names (e.g. "Rev. Marcos Aurélio de Souza") must not
+    // spill past the card edge into the next badge
+    const textX = badgeCx + metaBadgeR + 4;
+    const availW = bx + metaW - textX - 3;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    let valueFontSize = 10;
+    doc.setFontSize(valueFontSize);
+    while (valueFontSize > 7 && doc.getTextWidth(value) > availW) {
+      valueFontSize -= 0.5;
+      doc.setFontSize(valueFontSize);
+    }
+    let displayValue = value;
+    while (displayValue.length > 1 && doc.getTextWidth(displayValue + "…") > availW) {
+      displayValue = displayValue.slice(0, -1);
+    }
+    if (displayValue !== value) displayValue += "…";
     doc.setTextColor(...GRAY1);
-    doc.text(value, ML + ox + 6, Y + 10);
+    doc.text(displayValue, textX, Y + 12);
   };
 
-  metaItem("Pastor", pastorName, 0);
-  metaItem("Tesoureira", treasurerName, metaW);
-  metaItem("Referência", refDate, metaW * 2);
+  metaCard(0, iconPerson, "Pastor", pastorName);
+  metaCard(metaW + 3, iconPerson, "Tesoureira", treasurerName);
+  metaCard((metaW + 3) * 2, iconCalendar, "Referência", refDate);
 
-  // separators
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(ML + metaW, Y + 2, ML + metaW, Y + 12);
-  doc.line(ML + metaW * 2, Y + 2, ML + metaW * 2, Y + 12);
-
-  Y += 18;
+  Y += metaH + 5;
 
   // ── INTRO TEXT ──
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(...GRAY2);
   doc.text("Relatório simplificado das entradas de dízimos e ofertas realizadas no culto de domingo.", ML, Y);
-  Y += 4.5;
+  Y += 5.5;
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...GRAY1);
   doc.text("Valores a serem depositados na conta da igreja na segunda-feira.", ML, Y);
-  Y += 8;
+  Y += 10;
 
   const totalTithes   = tithes.reduce((s, e) => s + e.amount, 0);
   const totalOfferings = offerings.reduce((s, e) => s + e.amount, 0);
   const totalAll = totalTithes + totalOfferings;
 
   // ── TITHES TABLE ──
-  const colNum = 12;
-  const colVal = 32;
+  const colNum = 14;
+  const colVal = 36;
   const colName = W - colNum - colVal;
+  const ROW_H = 7;
+  const SEC_BADGE_R = 5;
 
-  sectionHeader(doc, ML, Y, W, "DÍZIMOS");
-  Y += 7;
+  const sectionHeaderWithBadge = (secY: number, title: string, barColor: [number, number, number], icon: typeof iconPerson) => {
+    filledRect(doc, ML, secY, W, 7.5, barColor);
+    icon(doc, ML + SEC_BADGE_R, secY + 3.75, SEC_BADGE_R, barColor, WHITE);
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(title.toUpperCase(), ML + SEC_BADGE_R * 2 + 4, secY + 5.2);
+    doc.setTextColor(...GRAY1);
+  };
+
+  sectionHeaderWithBadge(Y, "Dízimos", NAVY, iconHandHeart);
+  Y += 8;
 
   // column headers
-  filledRect(doc, ML, Y, W, 6, [241, 245, 249]);
+  filledRect(doc, ML, Y, W, 7, [226, 232, 240]);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.setTextColor(...GRAY2);
-  doc.text("#", ML + 3, Y + 4.2);
-  doc.text("DIZIMISTA", ML + colNum + 2, Y + 4.2);
-  doc.text("VALOR (R$)", PW - MR - 2, Y + 4.2, { align: "right" });
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(ML, Y + 6, PW - MR, Y + 6);
-  Y += 6;
+  doc.setFontSize(8);
+  doc.setTextColor(...NAVY);
+  doc.text("#", ML + 3, Y + 4.8);
+  doc.text("DIZIMISTA", ML + colNum + 2, Y + 4.8);
+  doc.text("VALOR (R$)", PW - MR - 2, Y + 4.8, { align: "right" });
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.25);
+  doc.line(ML, Y + 7, PW - MR, Y + 7);
+  Y += 7;
 
   tithes.forEach((e, i) => {
     tableRow(doc, ML, Y, W, [
-      { text: String(i + 1).padStart(2, "0"), width: colNum },
+      { text: String(i + 1), width: colNum },
       { text: e.name, width: colName },
       { text: e.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), width: colVal, align: "right" },
-    ], i % 2 === 1);
-    Y += 6;
+    ], i % 2 === 1, false, undefined, ROW_H);
+    Y += ROW_H;
   });
 
-  // Totals row — tithes
-  filledRect(doc, ML, Y, W, 6, [239, 246, 255]);
+  // Totals row — tithes (navy accent strip on the left)
+  filledRect(doc, ML, Y, W, 7, [239, 246, 255]);
+  filledRect(doc, ML, Y, 1.6, 7, NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...NAVY);
+  doc.text("TOTAL DÍZIMOS", ML + colNum + 2, Y + 4.8);
+  doc.text(totalTithes.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), PW - MR - 2, Y + 4.8, { align: "right" });
+  Y += 12;
+
+  // ── OFFERINGS TABLE ──
+  sectionHeaderWithBadge(Y, "Ofertas", RED, iconHeart);
+  Y += 8;
+
+  // column headers
+  filledRect(doc, ML, Y, W, 7, [226, 232, 240]);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  doc.text("TOTAL DÍZIMOS", ML + colNum + 2, Y + 4.2);
-  doc.text(totalTithes.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), PW - MR - 2, Y + 4.2, { align: "right" });
-  Y += 10;
-
-  // ── OFFERINGS TABLE ──
-  sectionHeader(doc, ML, Y, W, "OFERTAS");
+  doc.text("#", ML + 3, Y + 4.8);
+  doc.text("OFERTANTE", ML + colNum + 2, Y + 4.8);
+  doc.text("VALOR (R$)", PW - MR - 2, Y + 4.8, { align: "right" });
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.25);
+  doc.line(ML, Y + 7, PW - MR, Y + 7);
   Y += 7;
-
-  // column headers
-  filledRect(doc, ML, Y, W, 6, [241, 245, 249]);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.setTextColor(...GRAY2);
-  doc.text("#", ML + 3, Y + 4.2);
-  doc.text("OFERTANTE", ML + colNum + 2, Y + 4.2);
-  doc.text("VALOR (R$)", PW - MR - 2, Y + 4.2, { align: "right" });
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(ML, Y + 6, PW - MR, Y + 6);
-  Y += 6;
 
   offerings.forEach((e, i) => {
     tableRow(doc, ML, Y, W, [
-      { text: String(i + 1).padStart(2, "0"), width: colNum },
+      { text: String(i + 1), width: colNum },
       { text: e.name, width: colName },
       { text: e.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), width: colVal, align: "right" },
-    ], i % 2 === 1);
-    Y += 6;
+    ], i % 2 === 1, false, undefined, ROW_H);
+    Y += ROW_H;
   });
 
-  // Totals row — offerings
-  filledRect(doc, ML, Y, W, 6, [255, 242, 242]);
+  // Totals row — offerings (red accent strip on the left)
+  filledRect(doc, ML, Y, W, 7, [255, 242, 242]);
+  filledRect(doc, ML, Y, 1.6, 7, RED);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(9.5);
   doc.setTextColor(...RED);
-  doc.text("TOTAL OFERTAS", ML + colNum + 2, Y + 4.2);
-  doc.text(totalOfferings.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), PW - MR - 2, Y + 4.2, { align: "right" });
-  Y += 12;
+  doc.text("TOTAL OFERTAS", ML + colNum + 2, Y + 4.8);
+  doc.text(totalOfferings.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), PW - MR - 2, Y + 4.8, { align: "right" });
+  Y += 14;
 
   // ── GRAND TOTAL CARD ──
-  filledRect(doc, ML, Y, W, 16, NAVY);
-  // circle icon
-  doc.setFillColor(...WHITE);
-  doc.circle(ML + 10, Y + 8, 5, "F");
-  doc.setFillColor(...NAVY);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...NAVY);
-  doc.text("$", ML + 8, Y + 10);
+  const cardH = 20;
+  filledRect(doc, ML, Y, W, cardH, NAVY);
+  iconBank(doc, ML + 13, Y + cardH / 2, 7, [30, 64, 110], WHITE);
 
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...WHITE);
+  doc.text("TOTAL GERAL A SER DEPOSITADO NA SEGUNDA-FEIRA", ML + 26, Y + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(`Data prevista do depósito: ${depositDate}`, ML + 26, Y + 14);
+
+  // value box
+  const valBoxW = 56;
+  filledRect(doc, PW - MR - valBoxW, Y + 2.5, valBoxW, cardH - 5, WHITE);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(...NAVY);
+  doc.text(brl(totalAll), PW - MR - 4, Y + cardH / 2 + 2, { align: "right" });
+  Y += cardH + 9;
+
+  // Minimalist closing (thin rule + cross badge + 2 lines) needs ~34mm above
+  // the footer band. Start a fresh page if it wouldn't fit.
+  const CLOSING_BLOCK_H = 34;
+  if (Y + CLOSING_BLOCK_H > PHFOOTER - 4) {
+    doc.addPage();
+    // Anchor the block just above the footer band rather than at the page
+    // top — a short closing block on an otherwise-empty page looks broken.
+    Y = PHFOOTER - CLOSING_BLOCK_H - 6;
+  }
+
+  // ── MINIMALIST CLOSING ──
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(ML + 18, Y, PW - MR - 18, Y);
+  iconCross(doc, PW / 2, Y, 5, WHITE, RED);
+  Y += 11;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...NAVY);
+  doc.text("Obrigado pela fidelidade e generosidade!", PW / 2, Y, { align: "center" });
+  Y += 5.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...GRAY2);
+  doc.text("Deus abençoe a vida de cada um que contribui com alegria para a obra do Senhor.", PW / 2, Y, { align: "center" });
+
+  // ── FOOTER BAND (fills the bottom whitespace with purposeful colour bar) ──
+  filledRect(doc, 0, PHFOOTER, PW, 297 - PHFOOTER, NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...WHITE);
+  doc.text("IGREJA METODISTA MONTE ALEGRE", ML, PHFOOTER + 9);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(220, 226, 235);
+  doc.text("Relatório de Entradas — Documento de uso interno e contábil.", ML, PHFOOTER + 13);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...WHITE);
-  doc.text("TOTAL GERAL A SER DEPOSITADO NA SEGUNDA-FEIRA", ML + 18, Y + 6);
-  doc.setFontSize(7.5);
-  doc.text(`(${depositDate})`, ML + 18, Y + 11);
-
-  // value box
-  filledRect(doc, PW - MR - 52, Y + 1, 50, 14, WHITE);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(...NAVY);
-  doc.text(brl(totalAll), PW - MR - 2, Y + 11, { align: "right" });
-  Y += 22;
-
-  // ── VERSE ──
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...GRAY2);
-  const verseLine = '"Cada um contribua segundo tiver proposto no coração, não com tristeza ou por necessidade; pois Deus ama ao que dá com alegria."';
-  Y = wrapText(doc, verseLine, ML, Y, W, 5);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("2 Coríntios 9:7", PW / 2, Y + 3, { align: "center" });
-  Y += 12;
-
-  // ── FOOTER ──
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.4);
-  doc.line(ML, Y, PW - MR, Y);
-  Y += 8;
-  drawLogo(doc, PW / 2 - 7, Y - 2, 14);
-  Y += 14;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...NAVY);
-  doc.text("Obrigado pela fidelidade e generosidade!", PW / 2, Y, { align: "center" });
+  doc.text(`Pastor: ${pastorName}  |  Tesoureira: ${treasurerName}`, PW - MR, PHFOOTER + 9, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...GRAY2);
-  doc.text("Deus abençoe a vida de cada um.", PW / 2, Y + 5, { align: "center" });
+  doc.setFontSize(7.5);
+  doc.setTextColor(220, 226, 235);
+  doc.text(`Referência: ${refDate}`, PW - MR, PHFOOTER + 13, { align: "right" });
 
-  doc.save(`Relatorio_Entradas_${refDate.replace(/[\s,/]+/g, "_")}.pdf`);
+  return { doc, filename: `Relatorio_Entradas_${refDate.replace(/[\s,/]+/g, "_")}.pdf` };
 };
 
 // ─────────────────────────────────────────────────────────
@@ -462,7 +652,7 @@ const buildFinancialReport = async (data: {
   doc.line(ML + mw, Y + 2, ML + mw, Y + 12);
   doc.line(ML + mw * 2, Y + 2, ML + mw * 2, Y + 12);
 
-  Y += 18;
+  Y += 22;
 
   // ── REPORT TITLE ──
   doc.setFont("helvetica", "bold");
@@ -479,34 +669,38 @@ const buildFinancialReport = async (data: {
   Y = wrapText(doc, "Este relatório apresenta o resumo das entradas, saídas e movimentações financeiras da Igreja Metodista Monte Alegre.", ML, Y, W, 4);
   Y += 6;
 
-  // ── 4 KPI CARDS ──
+  // ── 4 KPI CARDS (with colour icon badges) ──
   const kpiW = (W - 9) / 4;
+  const kpiH = 20;
   const kpis = [
-    { label: "TOTAL DE ENTRADAS", value: brl(data.totalEntries), color: GREEN, sub: "▲ +12,5% vs Mês Ant." },
-    { label: "TOTAL DE SAÍDAS",   value: brl(data.totalExpenses), color: [220,38,38] as [number,number,number], sub: "▼ -8,2% vs Mês Ant." },
-    { label: "SALDO DO MÊS",      value: brl(data.balance), color: [59,130,246] as [number,number,number], sub: "Superávit" },
-    { label: "SALDO DISPONÍVEL",  value: brl(data.balanceAvailable), color: [245,158,11] as [number,number,number], sub: "Caixa + Banco" },
+    { label: "TOTAL DE ENTRADAS", value: brl(data.totalEntries), color: GREEN, sub: "▲ +12,5% vs Mês Ant.", icon: iconArrowDown },
+    { label: "TOTAL DE SAÍDAS",   value: brl(data.totalExpenses), color: [220,38,38] as [number,number,number], sub: "▼ -8,2% vs Mês Ant.", icon: iconArrowUp },
+    { label: "SALDO DO MÊS",      value: brl(data.balance), color: [59,130,246] as [number,number,number], sub: "Superávit", icon: iconWallet },
+    { label: "SALDO DISPONÍVEL",  value: brl(data.balanceAvailable), color: [245,158,11] as [number,number,number], sub: "Caixa + Banco", icon: iconBank },
   ];
 
   kpis.forEach((kpi, i) => {
     const kx = ML + i * (kpiW + 3);
-    cardBox(doc, kx, Y, kpiW, 18, WHITE);
+    cardBox(doc, kx, Y, kpiW, kpiH, WHITE);
     // coloured left strip
-    filledRect(doc, kx, Y, 2, 18, kpi.color);
+    filledRect(doc, kx, Y, 2, kpiH, kpi.color);
+    // icon badge in the top-right corner of the card
+    const badgeR = 4.5;
+    kpi.icon(doc, kx + kpiW - badgeR - 3, Y + badgeR + 3, badgeR, kpi.color, WHITE);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6);
     doc.setTextColor(...GRAY2);
-    doc.text(kpi.label, kx + 4, Y + 5);
+    doc.text(kpi.label, kx + 4, Y + 6);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
     doc.setTextColor(...kpi.color);
-    doc.text(kpi.value, kx + 4, Y + 12);
+    doc.text(kpi.value, kx + 4, Y + 13);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...GRAY3);
-    doc.text(kpi.sub, kx + 4, Y + 16.5);
+    doc.text(kpi.sub, kx + 4, Y + 18);
   });
-  Y += 24;
+  Y += kpiH + 6;
 
   // ── MAIN GRID: Demonstrativo + Gráfico ──
   const leftW = W * 0.58;
@@ -552,76 +746,98 @@ const buildFinancialReport = async (data: {
     Y += rh;
   });
 
-  // Right card — Donut chart (manual SVG circles approximation)
+  // Right card — Real pie/donut chart drawn via fan-triangulation (many thin
+  // triangles from the centre to consecutive points along each slice's arc),
+  // which renders smooth and solid — far cleaner than ring/bar approximations.
   const chartY = Y - (demoRows.length * 5.5 + 7);
-  const chartCX = gapX + rightW / 2;
-  const chartCY = chartY + 35;
-  const chartR  = 18;
 
   filledRect(doc, gapX, chartY, rightW, 7, NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setTextColor(...WHITE);
   doc.text("RESUMO POR CATEGORIA", gapX + 3, chartY + 5);
 
-  // Draw donut rings
-  const total = data.totalEntries || 1;
-  const slices = [
-    { pct: data.dizimosTotal / total, color: GREEN },
-    { pct: data.ofertasTotal / total, color: RED },
-    { pct: data.ofertasEspeciaisTotal / total, color: [59,130,246] as [number,number,number] },
-    { pct: (data.bazarTotal + data.almocoTotal) / total, color: [245,158,11] as [number,number,number] },
-    { pct: data.outrasEntradasTotal / total, color: GRAY3 },
+  const categories = [
+    { label: "Dízimos",        value: data.dizimosTotal,                           color: GREEN },
+    { label: "Ofertas",        value: data.ofertasTotal,                           color: RED },
+    { label: "Esp./Campanhas", value: data.ofertasEspeciaisTotal,                  color: [59,130,246] as [number,number,number] },
+    { label: "Eventos",        value: data.bazarTotal + data.almocoTotal,          color: [245,158,11] as [number,number,number] },
+    { label: "Outros",         value: data.outrasEntradasTotal,                    color: GRAY3 },
   ];
+  const totalCat = categories.reduce((s, c) => s + c.value, 0) || 1;
 
-  // Draw outer ring as coloured arcs using approximate strokes
-  let angle = -Math.PI / 2;
-  slices.forEach(slice => {
-    if (slice.pct <= 0) return;
-    const arcLen = slice.pct * 2 * Math.PI;
-    const steps = Math.max(2, Math.floor(arcLen * 20));
-    doc.setFillColor(...(slice.color as [number,number,number]));
-    for (let i = 0; i < steps; i++) {
-      const a1 = angle + (i / steps) * arcLen;
-      const a2 = angle + ((i + 1) / steps) * arcLen;
-      const r1 = chartR - 5;
-      const r2 = chartR;
-      const pts = [
-        [chartCX + r1 * Math.cos(a1), chartCY + r1 * Math.sin(a1)],
-        [chartCX + r2 * Math.cos(a1), chartCY + r2 * Math.sin(a1)],
-        [chartCX + r2 * Math.cos(a2), chartCY + r2 * Math.sin(a2)],
-        [chartCX + r1 * Math.cos(a2), chartCY + r1 * Math.sin(a2)],
-      ];
-      doc.triangle(pts[0][0], pts[0][1], pts[1][0], pts[1][1], pts[2][0], pts[2][1], "F");
-      doc.triangle(pts[0][0], pts[0][1], pts[2][0], pts[2][1], pts[3][0], pts[3][1], "F");
+  const donutR = 14;
+  const innerR = 7;
+  const donutCx = gapX + rightW / 2;
+  const donutCy = chartY + 7 + donutR + 5;
+
+  type Slice = { pct: number; midAngleRad: number; color: [number, number, number] };
+  const slices: Slice[] = [];
+  let startDeg = -90;
+  const STEP = 3;
+
+  categories.forEach((c) => {
+    const sweepDeg = (c.value / totalCat) * 360;
+    const endDeg = startDeg + sweepDeg;
+    doc.setFillColor(...c.color);
+    let a = startDeg;
+    while (a < endDeg) {
+      const a2 = Math.min(a + STEP, endDeg);
+      const r1 = (a * Math.PI) / 180;
+      const r2 = (a2 * Math.PI) / 180;
+      const x1 = donutCx + donutR * Math.cos(r1);
+      const y1 = donutCy + donutR * Math.sin(r1);
+      const x2 = donutCx + donutR * Math.cos(r2);
+      const y2 = donutCy + donutR * Math.sin(r2);
+      doc.triangle(donutCx, donutCy, x1, y1, x2, y2, "F");
+      a = a2;
     }
-    angle += arcLen;
+    slices.push({
+      pct: (c.value / totalCat) * 100,
+      midAngleRad: ((startDeg + endDeg) / 2) * (Math.PI / 180),
+      color: c.color,
+    });
+    startDeg = endDeg;
   });
 
-  // White centre
+  // punch the donut hole (white) to turn the pie into a donut
   doc.setFillColor(...WHITE);
-  doc.circle(chartCX, chartCY, chartR - 5, "F");
+  doc.circle(donutCx, donutCy, innerR, "F");
 
-  // Legend
-  const legendLabels = [
-    { label: "Dízimos",         value: brl(data.dizimosTotal),         color: GREEN },
-    { label: "Ofertas",         value: brl(data.ofertasTotal),         color: RED },
-    { label: "Esp./Campanhas",  value: brl(data.ofertasEspeciaisTotal), color: [59,130,246] as [number,number,number] },
-    { label: "Eventos",         value: brl(data.bazarTotal + data.almocoTotal), color: [245,158,11] as [number,number,number] },
-    { label: "Outros",          value: brl(data.outrasEntradasTotal),  color: GRAY3 },
-  ];
-
-  let lY = chartCY + chartR + 6;
-  legendLabels.forEach(l => {
-    doc.setFillColor(...(l.color as [number,number,number]));
-    doc.circle(gapX + 5, lY - 1, 2, "F");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(...GRAY1);
-    doc.text(l.label, gapX + 9, lY);
+  // percentage labels at each slice's mid-radius
+  slices.forEach((s) => {
+    if (s.pct < 4) return;
+    const labelR = (donutR + innerR) / 2;
+    const lx = donutCx + labelR * Math.cos(s.midAngleRad);
+    const ly = donutCy + labelR * Math.sin(s.midAngleRad);
     doc.setFont("helvetica", "bold");
-    doc.text(l.value, gapX + rightW - 2, lY, { align: "right" });
-    lY += 5;
+    doc.setFontSize(6);
+    doc.setTextColor(...WHITE);
+    doc.text(`${s.pct.toFixed(0)}%`, lx, ly + 1, { align: "center" });
+  });
+
+  // centre label
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...NAVY);
+  doc.text("TOTAL", donutCx, donutCy - 1, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(...GRAY2);
+  doc.text("Entradas", donutCx, donutCy + 3.5, { align: "center" });
+
+  // legend below the donut
+  let legendY = donutCy + donutR + 8;
+  categories.forEach((c) => {
+    filledRect(doc, gapX + 3, legendY - 2.6, 3, 3, c.color);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY1);
+    doc.text(c.label, gapX + 8, legendY);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...GRAY2);
+    doc.text(brl(c.value), gapX + rightW - 3, legendY, { align: "right" });
+    legendY += 5.5;
   });
 
   Y += 12;
@@ -653,13 +869,17 @@ const buildFinancialReport = async (data: {
     ],
   ];
 
+  const bgIcons = [iconPerson, iconHeart, iconCalendar];
+  const cardBadgeR = 4;
+
   bgHeaders.forEach((hdr, ci) => {
     const bx = ML + ci * (bgW + 3);
     filledRect(doc, bx, Y, bgW, 7, NAVY);
+    bgIcons[ci](doc, bx + cardBadgeR + 1, Y + 3.5, cardBadgeR, NAVY, WHITE);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...WHITE);
-    doc.text(hdr, bx + 2, Y + 5);
+    doc.text(hdr, bx + cardBadgeR * 2 + 4, Y + 5);
 
     let ry = Y + 7;
     bgData[ci].forEach((row, ri) => {
@@ -697,17 +917,19 @@ const buildFinancialReport = async (data: {
 
   sigPositions.forEach((sx, i) => {
     const lineW = 60;
+    // signature rendered in italic to emulate a handwritten name above the line
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(13);
+    doc.setTextColor(...NAVY);
+    doc.text(sigNames[i], sx + lineW / 2, Y - 2, { align: "center" });
+
     doc.setDrawColor(148, 163, 184);
     doc.setLineWidth(0.4);
     doc.line(sx, Y, sx + lineW, Y);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(...NAVY);
-    doc.text(sigLabels[i], sx + lineW / 2, Y + 5, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
     doc.setTextColor(...GRAY2);
-    doc.text(sigNames[i], sx + lineW / 2, Y + 10, { align: "center" });
+    doc.text(sigLabels[i], sx + lineW / 2, Y + 5, { align: "center" });
   });
 
   Y += 20;
@@ -719,7 +941,7 @@ const buildFinancialReport = async (data: {
   doc.text("Monte Alegre de Minas - MG | Servir à igreja é fazer a diferença na vida das pessoas.", ML, Y);
   doc.text(`Monte Alegre de Minas, 31 de Maio de 2024.`, PW - MR, Y, { align: "right" });
 
-  doc.save(`Relatorio_Financeiro_Clerical_${data.refDate.replace(/[\s•/]+/g, "_")}.pdf`);
+  return { doc, filename: `Relatorio_Financeiro_Clerical_${data.refDate.replace(/[\s•/]+/g, "_")}.pdf` };
 };
 
 // ─────────────────────────────────────────────────────────
@@ -757,6 +979,21 @@ export default function Reports() {
   const [endDate, setEndDate] = useState("2024-05-26");
   const [useMockupData, setUseMockupData] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [preview, setPreview] = useState<{ doc: any; url: string; filename: string } | null>(null);
+
+  // Revoke the blob URL when the preview closes/changes to avoid leaking memory
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
+
+  const showPreview = (result: { doc: any; filename: string }) => {
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { doc: result.doc, url: result.doc.output("bloburl"), filename: result.filename };
+    });
+  };
 
   const { data: settings } = trpc.churchSettings.get.useQuery();
   const { data: entries } = trpc.entries.listByDateRange.useQuery({
@@ -792,7 +1029,8 @@ export default function Reports() {
         depositDate = nd.toLocaleDateString("pt-BR");
       }
 
-      await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName);
+      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName);
+      showPreview(result);
       toast.success("Relatório de Entradas gerado com sucesso!");
     } catch (error) {
       console.error(error);
@@ -806,8 +1044,9 @@ export default function Reports() {
   const generateFinancialReport = async () => {
     setIsGenerating(true);
     try {
+      let result;
       if (useMockupData) {
-        await buildFinancialReport({
+        result = await buildFinancialReport({
           refDate: "Maio 2024",
           pastorName,
           treasurerName,
@@ -833,7 +1072,7 @@ export default function Reports() {
         const d = new Date(startDate + "T12:00:00");
         const mo = d.toLocaleDateString("pt-BR", { month: "long" });
 
-        await buildFinancialReport({
+        result = await buildFinancialReport({
           refDate: `${mo.charAt(0).toUpperCase() + mo.slice(1)} ${d.getFullYear()}`,
           pastorName,
           treasurerName,
@@ -853,6 +1092,7 @@ export default function Reports() {
           investimentosTotal: expenses.filter(e => ["construcao","equipamentos"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
         });
       }
+      showPreview(result);
       toast.success("Relatório Financeiro-Clerical gerado com sucesso!");
     } catch (error) {
       console.error(error);
@@ -926,24 +1166,67 @@ export default function Reports() {
                 </Select>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <Button
-              onClick={reportType === "entries" ? generateEntriesReport : generateFinancialReport}
-              disabled={isGenerating}
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Gerar PDF
-                </>
-              )}
-            </Button>
+        <Card>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Pré-visualização do Relatório</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={reportType === "entries" ? generateEntriesReport : generateFinancialReport}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Gerar PDF
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!preview}
+                onClick={() => {
+                  if (!preview) return;
+                  const win = window.open(preview.url, "_blank");
+                  win?.addEventListener("load", () => win.print());
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!preview}
+                onClick={() => preview && preview.doc.save(preview.filename)}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Baixar PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {preview ? (
+              <iframe
+                key={preview.url}
+                src={preview.url}
+                title="Pré-visualização do PDF"
+                className="w-full h-[75vh] rounded-md border bg-muted"
+              />
+            ) : (
+              <div className="flex h-[50vh] flex-col items-center justify-center gap-2 rounded-md border border-dashed text-muted-foreground">
+                <FileText className="h-10 w-10 opacity-40" />
+                <p className="text-sm text-center px-4">
+                  Clique em "Gerar PDF" para visualizar o relatório aqui, no mesmo layout que será impresso.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
