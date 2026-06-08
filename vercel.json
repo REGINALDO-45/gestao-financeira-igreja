@@ -1,16 +1,16 @@
 {
   "version": 2,
-  "buildCommand": "vite build",
+  "buildCommand": "vite build && esbuild api/index.ts --bundle --platform=node --target=node18 --format=esm --packages=external --outfile=api/index.js",
   "outputDirectory": "dist/public",
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 30
     }
   },
   "rewrites": [
-    { "source": "/manus-storage/:path*", "destination": "/api/index.ts" },
-    { "source": "/api/:path*",           "destination": "/api/index.ts" },
+    { "source": "/manus-storage/:path*", "destination": "/api/index.js" },
+    { "source": "/api/:path*",           "destination": "/api/index.js" },
     { "source": "/:path*",               "destination": "/index.html"   }
   ]
 }
