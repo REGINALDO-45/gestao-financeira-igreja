@@ -32,7 +32,7 @@ export default function Home() {
               className="w-full"
               size="lg"
             >
-              <a href={getLoginUrl()}>Entrar com Manus</a>
+              <a href={getLoginUrl()}>Entrar</a>
             </Button>
           </CardContent>
         </Card>
