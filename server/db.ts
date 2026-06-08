@@ -1,5 +1,6 @@
 import { eq, desc, and, gte, lte, like } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   InsertUser,
   users,
@@ -25,7 +26,8 @@ let _initialized = false;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL, { max: 5 });
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -117,9 +119,13 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({
+        target: users.openId,
+        set: updateSet,
+      });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -187,8 +193,11 @@ export async function upsertChurchSettings(
       .where(eq(churchSettings.id, existing.id));
     return { ...existing, ...data } as ChurchSettings;
   } else {
-    const result = await db.insert(churchSettings).values(data as any);
-    return { id: result[0].insertId, ...data } as any;
+    const result = await db
+      .insert(churchSettings)
+      .values(data as any)
+      .returning({ id: churchSettings.id });
+    return { id: result[0].id, ...data } as any;
   }
 }
 
@@ -240,8 +249,8 @@ export async function createMember(data: any): Promise<Member | undefined> {
     return newMember;
   }
 
-  const result = await db.insert(members).values(data);
-  return getMemberById(result[0].insertId as number);
+  const result = await db.insert(members).values(data).returning({ id: members.id });
+  return getMemberById(result[0].id);
 }
 
 export async function updateMember(
@@ -332,8 +341,8 @@ export async function createEntry(data: any): Promise<Entry | undefined> {
     return newEntry;
   }
 
-  const result = await db.insert(entries).values(data);
-  const id = result[0].insertId as number;
+  const result = await db.insert(entries).values(data).returning({ id: entries.id });
+  const id = result[0].id;
   const entry = await db
     .select()
     .from(entries)
@@ -400,8 +409,8 @@ export async function createExpense(data: any): Promise<Expense | undefined> {
     return newExpense;
   }
 
-  const result = await db.insert(expenses).values(data);
-  const id = result[0].insertId as number;
+  const result = await db.insert(expenses).values(data).returning({ id: expenses.id });
+  const id = result[0].id;
   const expense = await db
     .select()
     .from(expenses)
@@ -461,8 +470,8 @@ export async function createCostCenter(data: any): Promise<CostCenter | undefine
     return newCC;
   }
 
-  const result = await db.insert(costCenters).values(data);
-  const id = result[0].insertId as number;
+  const result = await db.insert(costCenters).values(data).returning({ id: costCenters.id });
+  const id = result[0].id;
   const cc = await db
     .select()
     .from(costCenters)
@@ -492,8 +501,8 @@ export async function createReceipt(data: any): Promise<Receipt | undefined> {
     return newReceipt;
   }
 
-  const result = await db.insert(receipts).values(data);
-  const id = result[0].insertId as number;
+  const result = await db.insert(receipts).values(data).returning({ id: receipts.id });
+  const id = result[0].id;
   const receipt = await db
     .select()
     .from(receipts)
@@ -725,19 +734,25 @@ export async function seedDemoData(): Promise<boolean> {
     await db.delete(members);
 
     // 2. Configurações da Igreja
-    await db.insert(churchSettings).values({
-      churchName: "Igreja Metodista Monte Alegre",
-      pastorName: "Rev. Marcos Aurélio de Souza",
-      treasurerName: "Reginaldo Medeiros Silva",
-      defaultVerse: "Trazei todos os dízimos à casa do tesouro, para que haja mantimento na minha casa. (Malaquias 3:10)",
-      logoUrl: "",
-    }).onDuplicateKeyUpdate({
-      set: {
+    const existingSettings = await db.select().from(churchSettings).limit(1);
+    if (existingSettings.length > 0) {
+      await db
+        .update(churchSettings)
+        .set({
+          churchName: "Igreja Metodista Monte Alegre",
+          pastorName: "Rev. Marcos Aurélio de Souza",
+          treasurerName: "Reginaldo Medeiros Silva",
+        })
+        .where(eq(churchSettings.id, existingSettings[0].id));
+    } else {
+      await db.insert(churchSettings).values({
         churchName: "Igreja Metodista Monte Alegre",
         pastorName: "Rev. Marcos Aurélio de Souza",
         treasurerName: "Reginaldo Medeiros Silva",
-      }
-    });
+        defaultVerse: "Trazei todos os dízimos à casa do tesouro, para que haja mantimento na minha casa. (Malaquias 3:10)",
+        logoUrl: "",
+      });
+    }
 
     // 3. Centros de Custo
     const targetCCs = ["Administrativo", "Ação Social", "Missões", "Construção", "Escola Dominical"];
@@ -794,17 +809,20 @@ export async function seedDemoData(): Promise<boolean> {
           const entryDate = new Date(now.getFullYear(), now.getMonth() - monthOffset, 10);
           const amount = (200 + Math.random() * 300).toFixed(2);
           
-          const result = await db.insert(entries).values({
-            memberId: member.id,
-            entryDate: entryDate,
-            category: "dizimo",
-            amount: amount,
-            paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
-            description: `Dízimo de ${member.name} - Ref. ${entryDate.getMonth() + 1}/${entryDate.getFullYear()}`,
-            cultoSunday: sundays[Math.floor(Math.random() * sundays.length)],
-          });
-          
-          const entryId = result[0].insertId as number;
+          const result = await db
+            .insert(entries)
+            .values({
+              memberId: member.id,
+              entryDate: entryDate,
+              category: "dizimo",
+              amount: amount,
+              paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
+              description: `Dízimo de ${member.name} - Ref. ${entryDate.getMonth() + 1}/${entryDate.getFullYear()}`,
+              cultoSunday: sundays[Math.floor(Math.random() * sundays.length)],
+            })
+            .returning({ id: entries.id });
+
+          const entryId = result[0].id;
           
           await db.insert(receipts).values({
             entryId: entryId,
@@ -822,17 +840,20 @@ export async function seedDemoData(): Promise<boolean> {
         const entryDate = new Date(now.getFullYear(), now.getMonth(), 17);
         const amount = (20 + Math.random() * 80).toFixed(2);
         
-        const result = await db.insert(entries).values({
-          memberId: member.id,
-          entryDate: entryDate,
-          category: "oferta",
-          amount: amount,
-          paymentMethod: "dinheiro",
-          description: `Oferta voluntária de ${member.name}`,
-          cultoSunday: sundays[Math.floor(Math.random() * sundays.length)],
-        });
+        const result = await db
+          .insert(entries)
+          .values({
+            memberId: member.id,
+            entryDate: entryDate,
+            category: "oferta",
+            amount: amount,
+            paymentMethod: "dinheiro",
+            description: `Oferta voluntária de ${member.name}`,
+            cultoSunday: sundays[Math.floor(Math.random() * sundays.length)],
+          })
+          .returning({ id: entries.id });
 
-        const entryId = result[0].insertId as number;
+        const entryId = result[0].id;
 
         await db.insert(receipts).values({
           entryId: entryId,
