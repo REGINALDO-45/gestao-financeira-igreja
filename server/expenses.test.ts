@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+
+vi.mock("./db", () => {
+  return {
+    getAllExpenses: vi.fn().mockResolvedValue([]),
+    createExpense: vi.fn().mockImplementation((data) => Promise.resolve({ id: 1, ...data })),
+  };
+});
 
 function createAdminContext(): TrpcContext {
   return {

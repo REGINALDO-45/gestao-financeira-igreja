@@ -1,6 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+
+vi.mock("./db", () => {
+  return {
+    getAllEntries: vi.fn().mockResolvedValue([]),
+    createEntry: vi.fn().mockImplementation((data) => Promise.resolve({ id: 1, ...data })),
+    getEntriesByMember: vi.fn().mockResolvedValue([]),
+  };
+});
 
 function createTreasurerContext(): TrpcContext {
   return {

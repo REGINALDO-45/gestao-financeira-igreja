@@ -50,4 +50,31 @@ export function registerOAuthRoutes(app: Express) {
       res.status(500).json({ error: "OAuth callback failed" });
     }
   });
+
+  app.get("/api/oauth/mock-login", async (req: Request, res: Response) => {
+    try {
+      const mockOpenId = "mock-treasurer-user";
+      await db.upsertUser({
+        openId: mockOpenId,
+        name: "Administrador Teste",
+        email: "admin@igreja.org",
+        loginMethod: "mock",
+        role: "admin",
+        lastSignedIn: new Date(),
+      });
+
+      const sessionToken = await sdk.createSessionToken(mockOpenId, {
+        name: "Administrador Teste",
+        expiresInMs: ONE_YEAR_MS,
+      });
+
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+      res.redirect(302, "/");
+    } catch (error) {
+      console.error("[OAuth] Mock login failed", error);
+      res.status(500).json({ error: "Mock login failed" });
+    }
+  });
 }

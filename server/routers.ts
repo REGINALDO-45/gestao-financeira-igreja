@@ -5,6 +5,7 @@ import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
+import { storagePut } from "./storage";
 
 // Procedure para admin apenas
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -52,6 +53,23 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         return await db.upsertChurchSettings(input);
+      }),
+    uploadLogo: adminProcedure
+      .input(
+        z.object({
+          filename: z.string(),
+          contentType: z.string(),
+          base64Data: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.base64Data, "base64");
+        const { url } = await storagePut(`logos/${input.filename}`, buffer, input.contentType);
+        return { url };
+      }),
+    seedDemoData: protectedProcedure
+      .mutation(async () => {
+        return await db.seedDemoData();
       }),
   }),
 

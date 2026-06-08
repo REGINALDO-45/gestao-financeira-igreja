@@ -31,7 +31,7 @@
 - [x] Criar formulário de cadastro de membros
 - [x] Implementar campos: nome, contato, status (Regular, Atrasado, Inativo), data de batismo
 - [x] Criar tabela de membros com indicadores de status
-- [ ] Implementar histórico individual de contribuições por membro
+- [x] Implementar histórico individual de contribuições por membro
 - [x] Criar procedures tRPC para CRUD de membros
 
 ## Centros de Custo
@@ -42,7 +42,7 @@
 
 ## Configurações da Igreja
 - [x] Criar formulário de configurações (nome, logo, pastor, tesoureira, versículo padrão)
-- [ ] Implementar upload/armazenamento de logo
+- [x] Implementar upload/armazenamento de logo
 - [x] Criar procedures tRPC para salvar e recuperar configurações
 - [x] Garantir que configurações sejam consumidas automaticamente pelos relatórios
 
@@ -56,7 +56,7 @@
 ## Módulo de Recibos
 - [x] Criar template de recibo individual
 - [x] Implementar geração de recibos por contribuição
-- [ ] Implementar exportação/impressão de recibos em PDF (com listagem real)
+- [x] Implementar exportação/impressão de recibos em PDF (com listagem real)
 - [x] Criar procedures tRPC para gerar recibos
 
 ## Controle de Acesso e Permissões
@@ -82,11 +82,11 @@
 ## Testes e Validação
 - [x] Escrever testes vitest para procedures tRPC críticas
 - [x] Testar fluxos de autenticação e autorização
-- [ ] Testar geração de relatórios e recibos
+- [x] Testar geração de relatórios e recibos
 - [ ] Validar responsividade em desktop, tablet e mobile
 - [ ] Testar filtros e buscas em tabelas
 
 ## Entrega
-- [ ] Revisar todo o sistema
-- [ ] Criar checkpoint final
+- [x] Revisar todo o sistema
+- [x] Criar checkpoint final
 - [ ] Entregar ao usuário

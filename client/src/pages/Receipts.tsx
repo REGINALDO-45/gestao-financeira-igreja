@@ -29,6 +29,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus, Printer, Download } from "lucide-react";
 import { toast } from "sonner";
+import html2pdf from "html2pdf.js";
 
 export default function Receipts() {
   const [open, setOpen] = useState(false);
@@ -81,11 +82,6 @@ export default function Receipts() {
   };
 
   const handlePrintPDF = (receipt: any) => {
-    if (!window.html2pdf) {
-      toast.error("Biblioteca de PDF não carregada");
-      return;
-    }
-
     const htmlContent = `
       <html>
         <head>
@@ -158,12 +154,12 @@ export default function Receipts() {
     const options = {
       margin: 10,
       filename: `Recibo_${receipt.receiptNumber}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
+      image: { type: "jpeg" as const, quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
+      jsPDF: { orientation: "portrait" as const, unit: "mm" as const, format: "a4" as const },
     };
 
-    window.html2pdf().set(options).from(element).save();
+    html2pdf().set(options).from(element).save();
     toast.success("Recibo exportado com sucesso!");
   };
 
