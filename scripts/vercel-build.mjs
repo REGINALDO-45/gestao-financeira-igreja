@@ -31,14 +31,20 @@ run("npx vite build");
 const funcDir = path.join(root, ".vercel/output/functions/api.func");
 fs.mkdirSync(funcDir, { recursive: true });
 
+// Bundle everything (including node_modules) into a single CJS file.
+// CJS avoids the "type:module" requirement in Lambda environment and
+// handles dynamic requires used by some packages (postgres, etc).
 run(
   [
     "npx esbuild api/index.ts",
     "--bundle",
     "--platform=node",
     "--target=node18",
-    "--format=esm",
-    "--packages=external",
+    "--format=cjs",   // CJS: no "type":"module" needed in Lambda
+    "--minify",
+    // Mark native Node modules as external (they can't be bundled anyway)
+    "--external:fsevents",
+    "--external:pg-native",
     `--outfile=${funcDir}/index.js`,
   ].join(" ")
 );
