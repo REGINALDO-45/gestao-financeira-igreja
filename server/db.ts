@@ -26,7 +26,9 @@ let _initialized = false;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const client = postgres(process.env.DATABASE_URL, { max: 5 });
+      // Serverless environments (Vercel) need max:1 to avoid exhausting connections
+      const maxConnections = process.env.VERCEL ? 1 : 5;
+      const client = postgres(process.env.DATABASE_URL, { max: maxConnections });
       _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
