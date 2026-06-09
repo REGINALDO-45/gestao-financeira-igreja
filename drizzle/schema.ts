@@ -133,7 +133,7 @@ export type InsertCostCenter = typeof costCenters.$inferInsert;
  */
 export const entries = pgTable("entries", {
   id: serial("id").primaryKey(),
-  memberId: integer("memberId"),
+  memberId: integer("memberId").references(() => members.id),
   entryDate: date("entryDate", { mode: "date" }).notNull(),
   category: entryCategoryEnum("category").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
@@ -159,7 +159,7 @@ export const expenses = pgTable("expenses", {
   paymentStatus: paymentStatusEnum("paymentStatus").default("pendente").notNull(),
   description: text("description"),
   supplier: varchar("supplier", { length: 255 }),
-  costCenterId: integer("costCenterId"),
+  costCenterId: integer("costCenterId").references(() => costCenters.id),
   voucherUrl: text("voucherUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
@@ -173,9 +173,9 @@ export type InsertExpense = typeof expenses.$inferInsert;
  */
 export const receipts = pgTable("receipts", {
   id: serial("id").primaryKey(),
-  entryId: integer("entryId").notNull(),
+  entryId: integer("entryId").notNull().references(() => entries.id),
   receiptNumber: varchar("receiptNumber", { length: 50 }).notNull().unique(),
-  memberId: integer("memberId").notNull(),
+  memberId: integer("memberId").notNull().references(() => members.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
   issuedDate: date("issuedDate", { mode: "date" }).notNull(),
