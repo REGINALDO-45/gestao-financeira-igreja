@@ -15,6 +15,34 @@ import {
 import { trpc } from "@/lib/trpc";
 import { Loader2, FileText, Settings2, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
+import logoCruzChama from "../assets/logo-cruz-chama.png";
+
+// ─────────────────────────────────────────────────────────
+// Logo image loader — loads and caches the official Cross and Flame
+// artwork so it can be embedded (pasted) into the PDF via addImage.
+// ─────────────────────────────────────────────────────────
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  let p = imageCache.get(src);
+  if (!p) {
+    p = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Falha ao carregar imagem: ${src}`));
+      img.src = src;
+    });
+    imageCache.set(src, p);
+  }
+  return p;
+};
+
+// Draws an image preserving its aspect ratio, fitted to the given height.
+// Returns the resulting width so callers can position adjacent text.
+const drawLogoImage = (doc: any, img: HTMLImageElement, x: number, y: number, h: number): number => {
+  const w = h * (img.naturalWidth / img.naturalHeight);
+  doc.addImage(img, "PNG", x, y, w, h);
+  return w;
+};
 
 // ─────────────────────────────────────────────────────────
 // jsPDF loader — injects CDN once, caches on window.jspdf
@@ -83,52 +111,6 @@ const cardBox = (doc: any, x: number, y: number, w: number, h: number, fill: [nu
 // ─────────────────────────────────────────────────────────
 const brl = (n: number) =>
   "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// ─────────────────────────────────────────────────────────
-// Draw the official Cross and Flame mark of The United Methodist Church —
-// reproduced (not reimagined) after the real emblem: a single flowing red
-// flame silhouette set to the left of, and slightly overlapping, a slim
-// dark Latin cross. Flat, modern mark — no circular seal/badge.
-// ─────────────────────────────────────────────────────────
-const FLAME = [217, 33, 38]  as [number, number, number];
-const INK   = [35, 35, 39]   as [number, number, number];
-
-const drawLogo = (doc: any, x: number, y: number, size: number = 12) => {
-  const w = size;
-  const h = size * 1.32;
-
-  // ── Flame: one continuous silhouette traced as a closed bezier path —
-  // outer (left) edge sweeps up to a single tip; inner (right) edge curves
-  // back down in an S, pinching at a "waist" before flaring into the base ──
-  doc.setFillColor(...FLAME);
-  const baseX = x + w * 0.20;
-  const baseY = y + h * 0.93;
-  doc.lines(
-    [
-      // outer/left edge: rises and bows outward, narrowing to the top point
-      [-w * 0.22, -h * 0.16, -w * 0.12, -h * 0.52, w * 0.14, -h * 0.75],
-      // from the tip, the inner/right edge bulges out (the flame's "lobe")
-      [w * 0.24, h * 0.17, w * 0.07, h * 0.32, -w * 0.015, h * 0.39],
-      // ...then pinches into the waist and flares back out to close at the base
-      [-w * 0.095, h * 0.095, -w * 0.06, h * 0.205, 0, h * 0.32],
-    ],
-    baseX,
-    baseY,
-    [1, 1],
-    "F",
-    true
-  );
-
-  // ── Cross: slim dark Latin cross set to the right, overlapping the flame ──
-  doc.setFillColor(...INK);
-  const barT    = w * 0.085;
-  const crossCX = x + w * 0.64;
-  const vTop    = y + h * 0.05;
-  const vLen    = h * 0.93;
-  doc.rect(crossCX - barT / 2, vTop, barT, vLen, "F");
-  const hBarW = w * 0.42;
-  doc.rect(crossCX - hBarW / 2, vTop + vLen * 0.20, hBarW, barT, "F");
-};
 
 // ─────────────────────────────────────────────────────────
 // Section header line (navy bar + white title)
@@ -248,15 +230,6 @@ const iconArrowUp = (doc: any, cx: number, cy: number, r: number, bg: [number, n
   doc.triangle(cx - r * 0.4, cy - r * 0.05, cx + r * 0.4, cy - r * 0.05, cx, cy - r * 0.55, "F");
 };
 
-const iconCross = (doc: any, cx: number, cy: number, r: number, bg: [number, number, number], fg: [number, number, number]) => {
-  iconBadgeBase(doc, cx, cy, r, bg);
-  doc.setFillColor(...fg);
-  const barT = r * 0.32;
-  const barL = r * 1.25;
-  doc.rect(cx - barT / 2, cy - barL / 2, barT, barL, "F");
-  doc.rect(cx - barL / 2, cy - barL * 0.18 - barT / 2, barL, barT, "F");
-};
-
 // ─────────────────────────────────────────────────────────
 // Table row painter
 // ─────────────────────────────────────────────────────────
@@ -303,6 +276,7 @@ const buildEntriesReport = async (
 ) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const cruzChamaImg = await loadImage(logoCruzChama);
 
   const PW = 210; // page width mm
   const PHFOOTER = 283; // y where the colour footer band starts
@@ -312,17 +286,19 @@ const buildEntriesReport = async (
   let Y = 16;
 
   // ── HEADER ──
-  drawLogo(doc, ML, Y - 2, 16);
+  const logoH = 21;
+  const logoW = drawLogoImage(doc, cruzChamaImg, ML, Y - 2, logoH);
+  const textX = ML + logoW + 4;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...NAVY);
-  doc.text("Igreja Metodista", ML + 21, Y + 2);
+  doc.text("Igreja Metodista", textX, Y + 2);
   doc.setFontSize(18);
-  doc.text("Monte Alegre", ML + 21, Y + 9);
+  doc.text("Monte Alegre", textX, Y + 9);
   doc.setFont("helvetica", "italic");
   doc.setFontSize(9);
   doc.setTextColor(...GRAY2);
-  doc.text("Servir a Deus é transformar vidas!", ML + 21, Y + 14.5);
+  doc.text("Servir a Deus é transformar vidas!", textX, Y + 14.5);
 
   // right side title
   doc.setFont("helvetica", "bold");
@@ -524,7 +500,11 @@ const buildEntriesReport = async (
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.4);
   doc.line(ML + 18, Y, PW - MR - 18, Y);
-  iconCross(doc, PW / 2, Y, 5, WHITE, RED);
+  {
+    const closingLogoH = 9;
+    const closingLogoW = closingLogoH * (cruzChamaImg.naturalWidth / cruzChamaImg.naturalHeight);
+    doc.addImage(cruzChamaImg, "PNG", PW / 2 - closingLogoW / 2, Y - closingLogoH / 2, closingLogoW, closingLogoH);
+  }
   Y += 11;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -582,6 +562,7 @@ const buildFinancialReport = async (data: {
 }) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const cruzChamaImg = await loadImage(logoCruzChama);
 
   const PW = 210;
   const ML = 14;
@@ -590,7 +571,7 @@ const buildFinancialReport = async (data: {
   let Y = 14;
 
   // ── HEADER ──
-  drawLogo(doc, ML, Y - 2, 14);
+  drawLogoImage(doc, cruzChamaImg, ML, Y - 2, 18.5);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...NAVY);
