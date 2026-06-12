@@ -37,7 +37,7 @@ export function EntryForm({ onSuccess }: EntryFormProps) {
       await createEntry.mutateAsync({
         ...formData,
         entryDate: new Date(formData.entryDate),
-        memberId: formData.memberId ? parseInt(formData.memberId) : undefined,
+        memberId: formData.memberId && formData.memberId !== "none" ? parseInt(formData.memberId) : undefined,
         category: formData.category as any,
         paymentMethod: formData.paymentMethod as any,
       });
