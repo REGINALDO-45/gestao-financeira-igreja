@@ -383,7 +383,9 @@ export const buildFinancialReport = async (data: {
   doc.setFontSize(7.5);
   doc.setTextColor(...GRAY3);
   doc.text("Monte Alegre de Minas - MG | Servir à igreja é fazer a diferença na vida das pessoas.", ML, Y);
-  doc.text(`Monte Alegre de Minas, 31 de Maio de 2024.`, PW - MR, Y, { align: "right" });
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  doc.text(`Monte Alegre de Minas, ${todayStr}.`, PW - MR, Y, { align: "right" });
 
   return { doc, filename: `Relatorio_Financeiro_Clerical_${data.refDate.replace(/[\s•/]+/g, "_")}.pdf` };
 };
