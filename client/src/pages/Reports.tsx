@@ -581,20 +581,6 @@ const buildFinancialReport = async (data: {
   doc.setTextColor(...GRAY2);
   doc.text("Transformando vidas, edificando o Reino de Deus.", ML + 18, Y + 12);
 
-  // church icon on right side
-  doc.setFillColor(...LIGHT);
-  doc.rect(PW - MR - 30, Y - 2, 30, 18, "F");
-  doc.setDrawColor(226, 232, 240);
-  doc.rect(PW - MR - 30, Y - 2, 30, 18, "S");
-  // simple church silhouette in NAVY
-  doc.setFillColor(...NAVY);
-  const cx = PW - MR - 15;
-  const cy = Y + 5;
-  doc.triangle(cx - 8, cy + 6, cx, cy - 4, cx + 8, cy + 6, "F");
-  doc.rect(cx - 4, cy + 6, 8, 6, "F");
-  doc.setFillColor(...WHITE);
-  doc.rect(cx - 1, cy + 8, 2, 4, "F");  // door
-
   Y += 22;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.4);
@@ -1007,7 +993,7 @@ export default function Reports() {
         const mo = d.toLocaleDateString("pt-BR", { month: "long" });
         refDate = `${wd.charAt(0).toUpperCase() + wd.slice(1)}, ${d.getDate()} de ${mo.charAt(0).toUpperCase() + mo.slice(1)} de ${d.getFullYear()}`;
         const nd = new Date(d); nd.setDate(d.getDate() + 1);
-        depositDate = nd.toLocaleDateString("pt-BR");
+        depositDate = nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
       }
 
       const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName);

@@ -158,8 +158,8 @@ export async function getChurchSettings(): Promise<ChurchSettings | undefined> {
       memoryStore.churchSettings.push({
         id: 1,
         churchName: "Igreja Metodista Monte Alegre",
-        pastorName: "Rev. Marcos Aurélio de Souza",
-        treasurerName: "Reginaldo Medeiros Silva",
+        pastorName: "Pr. Reginaldo Medeiros",
+        treasurerName: "Ageovany de Sousa",
         defaultVerse: "Trazei todos os dízimos à casa do tesouro, para que haja mantimento na minha casa. (Malaquias 3:10)",
         logoUrl: "",
         createdAt: new Date(),
@@ -543,8 +543,8 @@ export async function seedDemoData(): Promise<boolean> {
     memoryStore.churchSettings.push({
       id: 1,
       churchName: "Igreja Metodista Monte Alegre",
-      pastorName: "Rev. Marcos Aurélio de Souza",
-      treasurerName: "Reginaldo Medeiros Silva",
+      pastorName: "Pr. Reginaldo Medeiros",
+      treasurerName: "Ageovany de Sousa",
       defaultVerse: "Trazei todos os dízimos à casa do tesouro, para que haja mantimento na minha casa. (Malaquias 3:10)",
       logoUrl: "",
       createdAt: new Date(),
@@ -742,15 +742,15 @@ export async function seedDemoData(): Promise<boolean> {
         .update(churchSettings)
         .set({
           churchName: "Igreja Metodista Monte Alegre",
-          pastorName: "Rev. Marcos Aurélio de Souza",
-          treasurerName: "Reginaldo Medeiros Silva",
+          pastorName: "Pr. Reginaldo Medeiros",
+          treasurerName: "Ageovany de Sousa",
         })
         .where(eq(churchSettings.id, existingSettings[0].id));
     } else {
       await db.insert(churchSettings).values({
         churchName: "Igreja Metodista Monte Alegre",
-        pastorName: "Rev. Marcos Aurélio de Souza",
-        treasurerName: "Reginaldo Medeiros Silva",
+        pastorName: "Pr. Reginaldo Medeiros",
+        treasurerName: "Ageovany de Sousa",
         defaultVerse: "Trazei todos os dízimos à casa do tesouro, para que haja mantimento na minha casa. (Malaquias 3:10)",
         logoUrl: "",
       });
