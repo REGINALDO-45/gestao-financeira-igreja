@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,16 @@ export default function Reports() {
     endDate: new Date(endDate),
   });
 
+  // Período do mês anterior, usado para calcular as cotas regional/distrital
+  const prevMonthRange = useMemo(() => {
+    const d = new Date(startDate + "T12:00:00");
+    const prevMonthStart = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(d.getFullYear(), d.getMonth(), 0);
+    return { startDate: prevMonthStart, endDate: prevMonthEnd };
+  }, [startDate]);
+
+  const { data: prevMonthEntries } = trpc.entries.listByDateRange.useQuery(prevMonthRange);
+
   const pastorName    = settings?.pastorName    ?? "Pr. Reginaldo Medeiros";
   const treasurerName = settings?.treasurerName ?? "Ageovany";
 
@@ -93,6 +103,10 @@ export default function Reports() {
       const d = new Date(startDate + "T12:00:00");
       const mo = d.toLocaleDateString("pt-BR", { month: "long" });
 
+      const prevMonthEntriesTotal = (prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0);
+      const cotaRegionalTotal = prevMonthEntriesTotal * 0.11;
+      const cotaDistritalTotal = prevMonthEntriesTotal * 0.04;
+
       const result = await buildFinancialReport({
         refDate: `${mo.charAt(0).toUpperCase() + mo.slice(1)} ${d.getFullYear()}`,
         pastorName,
@@ -111,6 +125,9 @@ export default function Reports() {
         despesasMinisteriaisTotal: expenses.filter(e => ["evangelismo","missoes"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
         despesasAdminTotal: expenses.filter(e => ["material_limpeza","manutencao","outras_despesas"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
         investimentosTotal: expenses.filter(e => ["construcao","equipamentos"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
+        prevMonthEntriesTotal,
+        cotaRegionalTotal,
+        cotaDistritalTotal,
       });
       showPreview(result);
       toast.success("Relatório Financeiro-Clerical gerado com sucesso!");
@@ -165,6 +182,34 @@ export default function Reports() {
                     <SelectItem value="financial">Financeiro-Clerical</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Cotas Regional e Distrital</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Calculadas sobre o total de entradas do mês anterior ({prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}):{" "}
+              <span className="font-semibold">
+                R$ {(prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0).toFixed(2)}
+              </span>
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-md border px-4 py-2">
+                <span>Cota Regional (11%)</span>
+                <span className="font-semibold">
+                  R$ {((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0) * 0.11).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-md border px-4 py-2">
+                <span>Cota Distrital (4%)</span>
+                <span className="font-semibold">
+                  R$ {((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0) * 0.04).toFixed(2)}
+                </span>
               </div>
             </div>
           </CardContent>

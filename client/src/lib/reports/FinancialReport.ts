@@ -40,6 +40,9 @@ export const buildFinancialReport = async (data: {
   despesasMinisteriaisTotal: number;
   despesasAdminTotal: number;
   investimentosTotal: number;
+  prevMonthEntriesTotal: number;
+  cotaRegionalTotal: number;
+  cotaDistritalTotal: number;
 }) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -171,6 +174,10 @@ export const buildFinancialReport = async (data: {
     { label: "  3.4 Investimentos",         value: brl(data.investimentosTotal), bold: false, bg: LIGHT },
     { label: "4. SALDO DO MÊS",     value: brl(data.balance),          bold: true, bg: [239,246,255] as [number,number,number], color: [30,58,138] as [number,number,number] },
     { label: "5. SALDO DISPONÍVEL", value: brl(data.balanceAvailable), bold: true, bg: [255,251,235] as [number,number,number], color: [120,53,15] as [number,number,number] },
+    { label: "6. COTAS (s/ Entradas do Mês Anterior)", value: brl(-(data.cotaRegionalTotal + data.cotaDistritalTotal)), bold: true, bg: [255,242,242] as [number,number,number], color: RED },
+    { label: "  6.1 Cota Regional (11%)",  value: brl(-data.cotaRegionalTotal),  bold: false, bg: WHITE },
+    { label: "  6.2 Cota Distrital (4%)",  value: brl(-data.cotaDistritalTotal), bold: false, bg: LIGHT },
+    { label: "7. SALDO APÓS COTAS", value: brl(data.balanceAvailable - data.cotaRegionalTotal - data.cotaDistritalTotal), bold: true, bg: [240,253,244] as [number,number,number], color: GREEN },
   ];
 
   // Header
