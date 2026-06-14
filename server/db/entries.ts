@@ -1,5 +1,5 @@
 import { eq, desc, and, gte, lte } from "drizzle-orm";
-import { entries, type Entry } from "../../drizzle/schema";
+import { entries, costCenters, type Entry } from "../../drizzle/schema";
 import { getDb, memoryStore } from "./core";
 import { ensureInitialized } from "./seed";
 
@@ -65,6 +65,7 @@ export async function createEntry(data: any): Promise<Entry | undefined> {
       paymentMethod: "pix",
       description: null,
       cultoSunday: null,
+      costCenterId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...data
@@ -81,4 +82,44 @@ export async function createEntry(data: any): Promise<Entry | undefined> {
     .where(eq(entries.id, id))
     .limit(1);
   return entry.length > 0 ? entry[0] : undefined;
+}
+
+export interface EntryCostCenterTotal {
+  costCenterId: number | null;
+  costCenterName: string | null;
+  total: number;
+}
+
+export async function getEntryTotalsByCostCenter(
+  startDate: Date,
+  endDate: Date
+): Promise<EntryCostCenterTotal[]> {
+  const entriesInRange = await getEntriesByDateRange(startDate, endDate);
+
+  const totalsByCenter = new Map<number, number>();
+  for (const entry of entriesInRange) {
+    if (entry.costCenterId == null) continue;
+    totalsByCenter.set(
+      entry.costCenterId,
+      (totalsByCenter.get(entry.costCenterId) ?? 0) + parseFloat(entry.amount)
+    );
+  }
+
+  if (totalsByCenter.size === 0) return [];
+
+  const db = await getDb();
+  let centers: { id: number; name: string }[];
+  if (!db) {
+    centers = memoryStore.costCenters;
+  } else {
+    centers = await db.select().from(costCenters);
+  }
+
+  const centerNameById = new Map(centers.map(c => [c.id, c.name]));
+
+  return Array.from(totalsByCenter.entries()).map(([costCenterId, total]) => ({
+    costCenterId,
+    costCenterName: centerNameById.get(costCenterId) ?? null,
+    total,
+  }));
 }

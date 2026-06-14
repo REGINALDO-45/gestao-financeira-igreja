@@ -21,6 +21,16 @@ export const entriesRouter = router({
     .query(async ({ input }) => {
       return await db.getEntriesByMember(input.memberId);
     }),
+  summaryByCostCenter: protectedProcedure
+    .input(
+      z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+      })
+    )
+    .query(async ({ input }) => {
+      return await db.getEntryTotalsByCostCenter(input.startDate, input.endDate);
+    }),
   create: treasurerProcedure
     .input(
       z.object({
@@ -43,6 +53,7 @@ export const entriesRouter = router({
         paymentMethod: z.enum(["pix", "dinheiro", "transferencia", "cartao", "deposito"]),
         description: z.string().optional(),
         cultoSunday: z.string().optional(),
+        costCenterId: z.number().optional(),
       })
     )
     .mutation(async ({ input }) => {

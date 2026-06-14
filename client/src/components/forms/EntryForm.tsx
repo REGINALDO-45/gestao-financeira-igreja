@@ -18,6 +18,7 @@ interface EntryFormProps {
 
 export function EntryForm({ onSuccess }: EntryFormProps) {
   const { data: members } = trpc.members.list.useQuery();
+  const { data: costCenters } = trpc.costCenters.list.useQuery();
   const createEntry = trpc.entries.create.useMutation();
   const utils = trpc.useUtils();
 
@@ -29,6 +30,7 @@ export function EntryForm({ onSuccess }: EntryFormProps) {
     memberId: "",
     cultoSunday: "",
     description: "",
+    costCenterId: "",
   });
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -40,9 +42,10 @@ export function EntryForm({ onSuccess }: EntryFormProps) {
         memberId: formData.memberId && formData.memberId !== "none" ? parseInt(formData.memberId) : undefined,
         category: formData.category as any,
         paymentMethod: formData.paymentMethod as any,
+        costCenterId: formData.costCenterId && formData.costCenterId !== "none" ? parseInt(formData.costCenterId) : undefined,
       });
       toast.success("Entrada registrada com sucesso!");
-      
+
       setFormData({
         entryDate: new Date().toISOString().split("T")[0],
         category: "dizimo",
@@ -51,6 +54,7 @@ export function EntryForm({ onSuccess }: EntryFormProps) {
         memberId: "",
         cultoSunday: "",
         description: "",
+        costCenterId: "",
       });
 
       // Invalidate to refresh the list
@@ -160,6 +164,26 @@ export function EntryForm({ onSuccess }: EntryFormProps) {
           value={formData.cultoSunday}
           onChange={(e) => setFormData({ ...formData, cultoSunday: e.target.value })}
         />
+      </div>
+
+      <div>
+        <Label htmlFor="costCenterId">Ministério / Centro de Custo (Opcional)</Label>
+        <Select
+          value={formData.costCenterId}
+          onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Caixa Geral (sem ministério específico)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Caixa Geral (sem ministério específico)</SelectItem>
+            {costCenters?.map((cc) => (
+              <SelectItem key={cc.id} value={cc.id.toString()}>
+                {cc.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

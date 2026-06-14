@@ -52,6 +52,10 @@ export default function Reports() {
     startDate: new Date(startDate),
     endDate: new Date(endDate),
   });
+  const { data: costCenterTotals } = trpc.entries.summaryByCostCenter.useQuery({
+    startDate: new Date(startDate),
+    endDate: new Date(endDate),
+  });
 
   const pastorName    = settings?.pastorName    ?? "Pr. Reginaldo Medeiros";
   const treasurerName = settings?.treasurerName ?? "Ageovany";
@@ -165,6 +169,33 @@ export default function Reports() {
             </div>
           </CardContent>
         </Card>
+
+        {costCenterTotals && costCenterTotals.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Entradas por Ministério</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Valores recebidos por ministério/centro de custo no período selecionado. Esses valores já estão
+                incluídos no total geral de entradas (caixa geral).
+              </p>
+              <div className="space-y-2">
+                {costCenterTotals.map((item) => (
+                  <div
+                    key={item.costCenterId}
+                    className="flex items-center justify-between rounded-md border px-4 py-2"
+                  >
+                    <span>{item.costCenterName ?? "Ministério não identificado"}</span>
+                    <span className="font-semibold">
+                      R$ {item.total.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
