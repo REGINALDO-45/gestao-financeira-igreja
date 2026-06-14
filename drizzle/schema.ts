@@ -140,6 +140,7 @@ export const entries = pgTable("entries", {
   paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
   description: text("description"),
   cultoSunday: varchar("cultoSunday", { length: 50 }),
+  costCenterId: integer("costCenterId").references(() => costCenters.id),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
 });

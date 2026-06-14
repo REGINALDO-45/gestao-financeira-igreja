@@ -37,6 +37,12 @@ export default function Entries() {
   const [open, setOpen] = useState(false);
   const { data: entries, isLoading } = trpc.entries.list.useQuery();
   const { data: members } = trpc.members.list.useQuery();
+  const { data: costCenters } = trpc.costCenters.list.useQuery();
+  const costCenterNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    costCenters?.forEach((cc) => map.set(cc.id, cc.name));
+    return map;
+  }, [costCenters]);
 
   // Filtros
   const [filterCategory, setFilterCategory] = useState("");
@@ -236,6 +242,7 @@ export default function Entries() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Forma de Pagamento</TableHead>
                       <TableHead>Culto/Domingo</TableHead>
+                      <TableHead>Ministério</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -253,6 +260,9 @@ export default function Entries() {
                         </TableCell>
                         <TableCell className="capitalize">{entry.paymentMethod}</TableCell>
                         <TableCell>{entry.cultoSunday || "-"}</TableCell>
+                        <TableCell>
+                          {entry.costCenterId ? costCenterNameById.get(entry.costCenterId) ?? "-" : "-"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

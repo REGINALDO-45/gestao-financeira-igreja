@@ -1,0 +1,6 @@
+ALTER TABLE "entries" ADD COLUMN "costCenterId" integer;--> statement-breakpoint
+ALTER TABLE "entries" ADD CONSTRAINT "entries_memberId_members_id_fk" FOREIGN KEY ("memberId") REFERENCES "public"."members"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "entries" ADD CONSTRAINT "entries_costCenterId_cost_centers_id_fk" FOREIGN KEY ("costCenterId") REFERENCES "public"."cost_centers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expenses" ADD CONSTRAINT "expenses_costCenterId_cost_centers_id_fk" FOREIGN KEY ("costCenterId") REFERENCES "public"."cost_centers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "receipts" ADD CONSTRAINT "receipts_entryId_entries_id_fk" FOREIGN KEY ("entryId") REFERENCES "public"."entries"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "receipts" ADD CONSTRAINT "receipts_memberId_members_id_fk" FOREIGN KEY ("memberId") REFERENCES "public"."members"("id") ON DELETE no action ON UPDATE no action;
