@@ -83,7 +83,7 @@ export default function Reports() {
       const nd = new Date(d); nd.setDate(d.getDate() + 1);
       const depositDate = nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
-      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName);
+      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName, settings?.logoUrl);
       showPreview(result);
       toast.success("Relatório de Entradas gerado com sucesso!");
     } catch (error) {
@@ -128,6 +128,7 @@ export default function Reports() {
         prevMonthEntriesTotal,
         cotaRegionalTotal,
         cotaDistritalTotal,
+        logoUrl: settings?.logoUrl,
       });
       showPreview(result);
       toast.success("Relatório Financeiro-Clerical gerado com sucesso!");

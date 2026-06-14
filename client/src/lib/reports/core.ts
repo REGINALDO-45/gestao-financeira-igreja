@@ -80,6 +80,58 @@ export const drawLogo = (doc: any, x: number, y: number, size: number = 12) => {
   doc.rect(crossCX - hBarW / 2, vTop + vLen * 0.20, hBarW, barT, "F");
 };
 
+// Loads a remote/local image (logo) and converts it to a data URL usable by jsPDF.addImage
+export const loadImageDataUrl = async (url: string): Promise<{ dataUrl: string; format: string } | null> => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const format = blob.type.includes("png")
+      ? "PNG"
+      : blob.type.includes("webp")
+      ? "WEBP"
+      : "JPEG";
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return { dataUrl, format };
+  } catch {
+    return null;
+  }
+};
+
+// Draws the church's configured logo (from churchSettings.logoUrl) when available,
+// falling back to the generated vector logo otherwise.
+export const drawLogoOrImage = async (
+  doc: any,
+  x: number,
+  y: number,
+  size: number,
+  logoUrl?: string | null
+) => {
+  if (logoUrl) {
+    const img = await loadImageDataUrl(logoUrl);
+    if (img) {
+      try {
+        const h = size * 1.32;
+        let w = h;
+        const props = doc.getImageProperties?.(img.dataUrl);
+        if (props?.width && props?.height) {
+          w = h * (props.width / props.height);
+        }
+        doc.addImage(img.dataUrl, img.format, x, y, w, h);
+        return;
+      } catch {
+        // fall through to vector logo on any rendering error
+      }
+    }
+  }
+  drawLogo(doc, x, y, size);
+};
+
 export const sectionHeader = (doc: any, x: number, y: number, w: number, title: string) => {
   filledRect(doc, x, y, w, 7.5, NAVY);
   doc.setTextColor(...WHITE);

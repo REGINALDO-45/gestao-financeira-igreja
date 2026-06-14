@@ -1,6 +1,6 @@
 import {
   getJsPDF,
-  drawLogo,
+  drawLogoOrImage,
   filledRect,
   cardBox,
   brl,
@@ -43,6 +43,7 @@ export const buildFinancialReport = async (data: {
   prevMonthEntriesTotal: number;
   cotaRegionalTotal: number;
   cotaDistritalTotal: number;
+  logoUrl?: string | null;
 }) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -54,7 +55,7 @@ export const buildFinancialReport = async (data: {
   let Y = 14;
 
   // ── HEADER ──
-  drawLogo(doc, ML, Y - 2, 14);
+  await drawLogoOrImage(doc, ML, Y - 2, 14, data.logoUrl);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...NAVY);
