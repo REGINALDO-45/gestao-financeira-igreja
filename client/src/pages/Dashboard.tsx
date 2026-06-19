@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -15,10 +15,25 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { trpc } from "@/lib/trpc";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ListChecks,
+  ArrowUpRight,
+  ArrowDownRight,
+} from "lucide-react";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const brlCompact = (n: number) =>
+  "R$ " +
+  n.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 
 export default function Dashboard() {
   const { user } = useAuthGuard();
@@ -42,34 +57,35 @@ export default function Dashboard() {
   const monthlyData = useMemo(() => {
     if (!entries || !expenses) return [];
 
-    const months: Record<string, { entradas: number; saidas: number }> = {};
+    // key "YYYY-MM" → mantém um sortKey numérico real e um rótulo legível,
+    // evitando ordenar pelo texto do mês em português (que o Date não parseia)
+    const months: Record<
+      string,
+      { entradas: number; saidas: number; sortKey: number; label: string }
+    > = {};
 
-    entries.forEach((entry) => {
-      const date = new Date(entry.entryDate);
-      const monthKey = date.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
-
-      if (!months[monthKey]) {
-        months[monthKey] = { entradas: 0, saidas: 0 };
+    const add = (dateVal: string | Date, field: "entradas" | "saidas", amount: string) => {
+      const date = new Date(dateVal);
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      const key = `${y}-${String(m).padStart(2, "0")}`;
+      if (!months[key]) {
+        months[key] = {
+          entradas: 0,
+          saidas: 0,
+          sortKey: y * 12 + m,
+          label: date.toLocaleDateString("pt-BR", { month: "short", year: "numeric" }),
+        };
       }
-      months[monthKey].entradas += parseFloat(entry.amount);
-    });
+      months[key][field] += parseFloat(amount);
+    };
 
-    expenses.forEach((expense) => {
-      const date = new Date(expense.expenseDate);
-      const monthKey = date.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+    entries.forEach((e) => add(e.entryDate, "entradas", e.amount));
+    expenses.forEach((e) => add(e.expenseDate, "saidas", e.amount));
 
-      if (!months[monthKey]) {
-        months[monthKey] = { entradas: 0, saidas: 0 };
-      }
-      months[monthKey].saidas += parseFloat(expense.amount);
-    });
-
-    return Object.entries(months)
-      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-      .map(([month, data]) => ({
-        month,
-        ...data,
-      }));
+    return Object.values(months)
+      .sort((a, b) => a.sortKey - b.sortKey) // antigo → recente (esquerda → direita)
+      .map(({ label, entradas, saidas }) => ({ month: label, entradas, saidas }));
   }, [entries, expenses]);
 
   const categoryData = useMemo(() => {
@@ -100,11 +116,61 @@ export default function Dashboard() {
     );
   }
 
+  const balancePositive = (stats?.balance || 0) >= 0;
+
+  const kpis = [
+    {
+      label: "Total de Entradas",
+      value: brl(stats?.totalEntries || 0),
+      hint: "Dízimos e ofertas",
+      icon: TrendingUp,
+      iconClass: "text-emerald-600 dark:text-emerald-400",
+      badgeClass: "bg-emerald-500/10",
+      accent: "from-emerald-500/15",
+      valueClass: "text-emerald-600 dark:text-emerald-400",
+    },
+    {
+      label: "Total de Saídas",
+      value: brl(stats?.totalExpenses || 0),
+      hint: "Despesas registradas",
+      icon: TrendingDown,
+      iconClass: "text-red-600 dark:text-red-400",
+      badgeClass: "bg-red-500/10",
+      accent: "from-red-500/15",
+      valueClass: "text-red-600 dark:text-red-400",
+    },
+    {
+      label: "Saldo Líquido",
+      value: brl(stats?.balance || 0),
+      hint: balancePositive ? "Superávit" : "Déficit",
+      hintIcon: balancePositive ? ArrowUpRight : ArrowDownRight,
+      icon: Wallet,
+      iconClass: balancePositive
+        ? "text-blue-600 dark:text-blue-400"
+        : "text-red-600 dark:text-red-400",
+      badgeClass: balancePositive ? "bg-blue-500/10" : "bg-red-500/10",
+      accent: balancePositive ? "from-blue-500/15" : "from-red-500/15",
+      valueClass: balancePositive
+        ? "text-blue-600 dark:text-blue-400"
+        : "text-red-600 dark:text-red-400",
+    },
+    {
+      label: "Lançamentos",
+      value: String((entries?.length || 0) + (expenses?.length || 0)),
+      hint: `${entries?.length || 0} entradas · ${expenses?.length || 0} saídas`,
+      icon: ListChecks,
+      iconClass: "text-amber-600 dark:text-amber-400",
+      badgeClass: "bg-amber-500/10",
+      accent: "from-amber-500/15",
+      valueClass: "text-foreground",
+    },
+  ];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral da situação financeira</p>
           {user && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -114,101 +180,103 @@ export default function Dashboard() {
         </div>
 
         {/* Cards de Saldo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Entradas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                R$ {stats?.totalEntries.toFixed(2) || "0,00"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Dízimos e ofertas</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Saídas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                R$ {stats?.totalExpenses.toFixed(2) || "0,00"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Despesas registradas</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo Líquido
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${
-                  (stats?.balance || 0) >= 0 ? "text-blue-600" : "text-red-600"
-                }`}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpis.map((kpi) => {
+            const Icon = kpi.icon;
+            const HintIcon = kpi.hintIcon;
+            return (
+              <Card
+                key={kpi.label}
+                className="relative overflow-hidden border-border/60 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
               >
-                R$ {stats?.balance.toFixed(2) || "0,00"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Resultado</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Quantidade de Lançamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(entries?.length || 0) + (expenses?.length || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {entries?.length || 0} entradas, {expenses?.length || 0} saídas
-              </p>
-            </CardContent>
-          </Card>
+                <div
+                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${kpi.accent} to-transparent`}
+                />
+                <CardContent className="relative p-5">
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {kpi.label}
+                    </span>
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl ${kpi.badgeClass}`}
+                    >
+                      <Icon className={`h-5 w-5 ${kpi.iconClass}`} />
+                    </span>
+                  </div>
+                  <div className={`mt-3 text-2xl font-bold tracking-tight ${kpi.valueClass}`}>
+                    {kpi.value}
+                  </div>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    {HintIcon && <HintIcon className="h-3.5 w-3.5" />}
+                    {kpi.hint}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gráfico de Linha - Evolução Mensal */}
-          <Card>
+          {/* Gráfico de Área - Evolução Mensal */}
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>Evolução Financeira Mensal</CardTitle>
             </CardHeader>
             <CardContent>
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip formatter={(value: any) => `R$ ${typeof value === 'number' ? value.toFixed(2) : value}`} />
+                  <AreaChart data={monthlyData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradSaidas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12 }}
+                      width={56}
+                      tickFormatter={(v) => brlCompact(Number(v))}
+                    />
+                    <Tooltip
+                      formatter={(value: any) => brl(Number(value))}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid hsl(var(--border))",
+                        fontSize: 13,
+                      }}
+                    />
                     <Legend />
-                    <Line
+                    <Area
                       type="monotone"
                       dataKey="entradas"
                       stroke="#10b981"
+                      strokeWidth={2.5}
+                      fill="url(#gradEntradas)"
                       name="Entradas"
-                      strokeWidth={2}
                     />
-                    <Line
+                    <Area
                       type="monotone"
                       dataKey="saidas"
                       stroke="#ef4444"
+                      strokeWidth={2.5}
+                      fill="url(#gradSaidas)"
                       name="Saídas"
-                      strokeWidth={2}
                     />
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-muted-foreground">
@@ -219,7 +287,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Gráfico de Rosca - Distribuição por Categoria */}
-          <Card>
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>Distribuição por Categoria</CardTitle>
             </CardHeader>
@@ -235,13 +303,20 @@ export default function Dashboard() {
                       outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
-                      label={({ name, value }) => `${name}: R$ ${value.toFixed(2)}`}
+                      label={({ name, value }) => `${name}: ${brl(Number(value))}`}
                     >
                       {categoryData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => `R$ ${typeof value === 'number' ? value.toFixed(2) : value}`} />
+                    <Tooltip
+                      formatter={(value: any) => brl(Number(value))}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid hsl(var(--border))",
+                        fontSize: 13,
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
