@@ -33,8 +33,4 @@ export const churchSettingsRouter = router({
       const { url } = await storagePut(`logos/${input.filename}`, buffer, input.contentType);
       return { url };
     }),
-  seedDemoData: protectedProcedure
-    .mutation(async () => {
-      return await db.seedDemoData();
-    }),
 });

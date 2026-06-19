@@ -81,23 +81,42 @@ export const drawLogo = (doc: any, x: number, y: number, size: number = 12) => {
 };
 
 // Loads a remote/local image (logo) and converts it to a data URL usable by jsPDF.addImage
+const blobToDataUrl = (blob: Blob): Promise<{ dataUrl: string; format: string } | null> => {
+  if (!blob.type.startsWith("image/")) return Promise.resolve(null);
+  const format = blob.type.includes("png")
+    ? "PNG"
+    : blob.type.includes("webp")
+    ? "WEBP"
+    : "JPEG";
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ dataUrl: reader.result as string, format });
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+};
+
 export const loadImageDataUrl = async (url: string): Promise<{ dataUrl: string; format: string } | null> => {
+  // Try direct fetch first (works for same-origin / CORS-enabled URLs)
   try {
     const res = await fetch(url);
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.startsWith("image/")) {
+        const result = await blobToDataUrl(await res.blob());
+        if (result) return result;
+      }
+    }
+  } catch {
+    // CORS or network error — try proxy
+  }
+
+  // Fallback: fetch via server-side proxy to avoid CORS
+  try {
+    const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
     if (!res.ok) return null;
-    const blob = await res.blob();
-    const format = blob.type.includes("png")
-      ? "PNG"
-      : blob.type.includes("webp")
-      ? "WEBP"
-      : "JPEG";
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-    return { dataUrl, format };
+    return await blobToDataUrl(await res.blob());
   } catch {
     return null;
   }

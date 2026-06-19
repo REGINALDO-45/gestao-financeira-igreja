@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { Loader2, UploadCloud, Database } from "lucide-react";
+import { Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Settings() {
@@ -22,26 +22,8 @@ export default function Settings() {
   });
 
   const uploadLogo = trpc.churchSettings.uploadLogo.useMutation();
-  const seedDemoData = trpc.churchSettings.seedDemoData.useMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-
-  const handleSeed = async () => {
-    if (!confirm("Isso apagará todas as entradas, despesas, recibos e membros atuais e criará novos dados de teste fictícios. Deseja continuar?")) {
-      return;
-    }
-    try {
-      setIsSeeding(true);
-      await seedDemoData.mutateAsync();
-      toast.success("Dados fictícios gerados com sucesso!");
-      window.location.reload();
-    } catch (error) {
-      toast.error("Erro ao gerar dados de teste");
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -184,53 +166,41 @@ export default function Settings() {
                     ref={fileInputRef}
                     onChange={handleLogoUpload}
                   />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
                   >
                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
                   </Button>
                 </div>
+                {formData.logoUrl && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img
+                      src={formData.logoUrl}
+                      alt="Logo da Igreja"
+                      className="h-16 w-auto object-contain rounded border bg-white p-1"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                      }}
+                      onLoad={(e) => {
+                        (e.target as HTMLImageElement).style.display = "";
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.add("hidden");
+                      }}
+                    />
+                    <span className="hidden text-xs text-destructive">
+                      Não foi possível carregar a imagem. Verifique se a URL aponta diretamente para um arquivo de imagem (PNG, JPG).
+                    </span>
+                  </div>
+                )}
               </div>
 
               <Button type="submit" className="w-full">
                 Salvar Configurações
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        <Card className="border-amber-200 bg-amber-50/20 dark:bg-amber-950/10">
-          <CardHeader>
-            <CardTitle className="text-amber-800 dark:text-amber-400 flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              Dados de Demonstração (Teste)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              Precisa testar o funcionamento dos relatórios e recibos em PDF? Clique no botão abaixo para gerar membros, dízimos, ofertas, despesas e recibos automaticamente.
-            </p>
-            <p className="text-xs text-muted-foreground font-semibold">
-              AVISO: Esta ação irá apagar permanentemente todas as informações atuais de membros, entradas, saídas e recibos para inserir os dados fictícios de demonstração.
-            </p>
-            <Button 
-              variant="outline" 
-              className="w-full border-amber-300 text-amber-800 hover:bg-amber-100 hover:text-amber-950 dark:text-amber-300 dark:border-amber-800 dark:hover:bg-amber-950/50"
-              onClick={handleSeed}
-              disabled={isSeeding}
-            >
-              {isSeeding ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Gerando dados fictícios...
-                </>
-              ) : (
-                "Gerar Dados de Teste Fictícios"
-              )}
-            </Button>
           </CardContent>
         </Card>
       </div>
