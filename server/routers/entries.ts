@@ -59,4 +59,36 @@ export const entriesRouter = router({
     .mutation(async ({ input }) => {
       return await db.createEntry(input);
     }),
+  update: treasurerProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        memberId: z.number().nullable().optional(),
+        entryDate: z.date().optional(),
+        category: z
+          .enum([
+            "dizimo",
+            "oferta",
+            "oferta_especial",
+            "campanha",
+            "missoes",
+            "construcao",
+            "bazar",
+            "almoco_beneficente",
+            "cantina",
+            "doacao",
+            "outras_receitas",
+          ])
+          .optional(),
+        amount: z.string().optional(),
+        paymentMethod: z.enum(["pix", "dinheiro", "transferencia", "cartao", "deposito"]).optional(),
+        description: z.string().optional(),
+        cultoSunday: z.string().optional(),
+        costCenterId: z.number().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return await db.updateEntry(id, data);
+    }),
 });

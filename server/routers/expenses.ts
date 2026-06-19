@@ -49,9 +49,28 @@ export const expensesRouter = router({
     .input(
       z.object({
         id: z.number(),
+        expenseDate: z.date().optional(),
+        category: z
+          .enum([
+            "agua",
+            "energia",
+            "internet",
+            "aluguel",
+            "material_limpeza",
+            "evangelismo",
+            "missoes",
+            "construcao",
+            "equipamentos",
+            "manutencao",
+            "outras_despesas",
+          ])
+          .optional(),
+        amount: z.string().optional(),
+        paymentMethod: z.enum(["pix", "dinheiro", "transferencia", "cartao", "deposito"]).optional(),
         paymentStatus: z.enum(["pendente", "pago", "cancelado"]).optional(),
         description: z.string().optional(),
-        amount: z.string().optional(),
+        supplier: z.string().optional(),
+        costCenterId: z.number().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {

@@ -84,6 +84,28 @@ export async function createEntry(data: any): Promise<Entry | undefined> {
   return entry.length > 0 ? entry[0] : undefined;
 }
 
+export async function updateEntry(
+  id: number,
+  data: Partial<Entry>
+): Promise<Entry | undefined> {
+  const db = await getDb();
+  if (!db) {
+    const entry = memoryStore.entries.find((e) => e.id === id);
+    if (entry) {
+      Object.assign(entry, data, { updatedAt: new Date() });
+    }
+    return entry;
+  }
+
+  await db.update(entries).set(data).where(eq(entries.id, id));
+  const result = await db
+    .select()
+    .from(entries)
+    .where(eq(entries.id, id))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export interface EntryCostCenterTotal {
   costCenterId: number | null;
   costCenterName: string | null;

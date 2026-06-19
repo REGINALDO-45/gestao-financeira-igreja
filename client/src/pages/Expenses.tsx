@@ -28,15 +28,21 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Expense = RouterOutputs["expenses"]["list"][number];
 
 export default function Expenses() {
   const { user } = useAuthGuard();
   const [open, setOpen] = useState(false);
-  
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
   // Filtros
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -249,6 +255,7 @@ export default function Expenses() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Centro de Custo</TableHead>
                       <TableHead>Status</TableHead>
+                      {isTreasurer(user?.role) && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -272,6 +279,17 @@ export default function Expenses() {
                             {expense.paymentStatus === "cancelado" && "Cancelado"}
                           </Badge>
                         </TableCell>
+                        {isTreasurer(user?.role) && (
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingExpense(expense)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -284,6 +302,17 @@ export default function Expenses() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={editingExpense !== null} onOpenChange={(isOpen) => !isOpen && setEditingExpense(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Despesa</DialogTitle>
+            </DialogHeader>
+            {editingExpense && (
+              <ExpenseForm expense={editingExpense} onSuccess={() => setEditingExpense(null)} />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
