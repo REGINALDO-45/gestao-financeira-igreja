@@ -117,3 +117,4 @@ api/index.js
 
 # Claude Code local config
 .claude/
+local-uploads/

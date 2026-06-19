@@ -1,8 +1,20 @@
 // Preconfigured storage helpers for Manus WebDev templates
 // Uploads via Forge Server presigned URL to S3 (PUT direct).
 // Downloads return /manus-storage/{key} paths served via 307 redirect.
+//
+// When Forge credentials are not configured (e.g. local development),
+// uploads fall back to the local filesystem under ./local-uploads,
+// served statically at /local-uploads/{key}.
 
+import fs from "fs";
+import path from "path";
 import { ENV } from "./_core/env";
+
+const LOCAL_UPLOADS_DIR = path.join(process.cwd(), "local-uploads");
+
+function hasForgeConfig(): boolean {
+  return Boolean(ENV.forgeApiUrl && ENV.forgeApiKey);
+}
 
 function getForgeConfig() {
   const forgeUrl = ENV.forgeApiUrl;
@@ -15,6 +27,16 @@ function getForgeConfig() {
   }
 
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
+}
+
+async function localStoragePut(
+  key: string,
+  data: Buffer | Uint8Array | string,
+): Promise<{ key: string; url: string }> {
+  const destPath = path.join(LOCAL_UPLOADS_DIR, key);
+  await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
+  await fs.promises.writeFile(destPath, data as any);
+  return { key, url: `/local-uploads/${key}` };
 }
 
 function normalizeKey(relKey: string): string {
@@ -33,8 +55,13 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
   const key = appendHashSuffix(normalizeKey(relKey));
+
+  if (!hasForgeConfig()) {
+    return localStoragePut(key, data);
+  }
+
+  const { forgeUrl, forgeKey } = getForgeConfig();
 
   // 1. Get presigned PUT URL from Forge
   const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
