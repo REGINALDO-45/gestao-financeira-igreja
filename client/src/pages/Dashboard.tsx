@@ -35,7 +35,7 @@ import {
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { monthRangeUTC } from "@/lib/dateRange";
 
-const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16"];
 
 const sumAmounts = (items: { amount: string }[]) =>
   Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
@@ -341,17 +341,16 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
                       data={categoryData}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
+                      cy="45%"
+                      innerRadius={55}
+                      outerRadius={90}
                       paddingAngle={2}
                       dataKey="value"
-                      label={({ name, value }) => `${name}: ${brl(Number(value))}`}
                     >
                       {categoryData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -364,6 +363,15 @@ export default function Dashboard() {
                         border: "1px solid hsl(var(--border))",
                         fontSize: 13,
                       }}
+                    />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      formatter={(value) => (
+                        <span style={{ fontSize: 12, textTransform: "capitalize" }}>
+                          {value.toLowerCase()}
+                        </span>
+                      )}
                     />
                   </PieChart>
                 </ResponsiveContainer>
