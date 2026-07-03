@@ -8,6 +8,7 @@ import { membersRouter } from "./routers/members";
 import { entriesRouter } from "./routers/entries";
 import { expensesRouter } from "./routers/expenses";
 import { recurringExpensesRouter } from "./routers/recurringExpenses";
+import { annualBudgetsRouter } from "./routers/annualBudgets";
 import { costCentersRouter } from "./routers/costCenters";
 import { receiptsRouter } from "./routers/receipts";
 
@@ -29,6 +30,7 @@ export const appRouter = router({
   entries: entriesRouter,
   expenses: expensesRouter,
   recurringExpenses: recurringExpensesRouter,
+  annualBudgets: annualBudgetsRouter,
   costCenters: costCentersRouter,
   receipts: receiptsRouter,
 });

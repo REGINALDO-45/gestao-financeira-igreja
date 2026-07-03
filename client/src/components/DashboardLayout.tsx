@@ -21,7 +21,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, Users, DollarSign, TrendingDown, Settings, FileText, Receipt } from "lucide-react";
+import { LayoutDashboard, LogOut, Users, DollarSign, TrendingDown, Settings, FileText, Receipt, Target } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +33,7 @@ const menuItems = [
   { icon: TrendingDown, label: "Saídas", path: "/expenses" },
   { icon: Users, label: "Membros", path: "/members" },
   { icon: Settings, label: "Centros de Custo", path: "/cost-centers" },
+  { icon: Target, label: "Orçamento Anual", path: "/annual-budget" },
   { icon: FileText, label: "Relatórios", path: "/reports" },
   { icon: Receipt, label: "Recibos", path: "/receipts" },
   { icon: Settings, label: "Configurações", path: "/settings" },

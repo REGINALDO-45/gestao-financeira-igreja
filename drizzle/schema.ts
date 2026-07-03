@@ -191,6 +191,22 @@ export type RecurringExpense = typeof recurringExpenses.$inferSelect;
 export type InsertRecurringExpense = typeof recurringExpenses.$inferInsert;
 
 /**
+ * Orçamento Anual - metas mensais de entradas e despesas por ano, usadas para
+ * acompanhar o percentual realizado em relação ao orçado.
+ */
+export const annualBudgets = pgTable("annual_budgets", {
+  id: serial("id").primaryKey(),
+  year: integer("year").notNull().unique(),
+  monthlyEntriesGoal: decimal("monthlyEntriesGoal", { precision: 10, scale: 2 }).notNull(),
+  monthlyExpensesGoal: decimal("monthlyExpensesGoal", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type AnnualBudget = typeof annualBudgets.$inferSelect;
+export type InsertAnnualBudget = typeof annualBudgets.$inferInsert;
+
+/**
  * Recibos - registros de recibos gerados para contribuições
  */
 export const receipts = pgTable("receipts", {

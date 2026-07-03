@@ -13,6 +13,7 @@ import CostCenters from "./pages/CostCenters";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Receipts from "./pages/Receipts";
+import AnnualBudget from "./pages/AnnualBudget";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/reports" component={Reports} />
       <Route path="/receipts" component={Receipts} />
+      <Route path="/annual-budget" component={AnnualBudget} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -29,6 +29,7 @@ export const memoryStore = {
   costCenters: [] as any[],
   receipts: [] as any[],
   recurringExpenses: [] as any[],
+  annualBudgets: [] as any[],
 };
 
 export function setInitialized(val: boolean) {

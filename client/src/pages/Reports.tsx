@@ -16,6 +16,12 @@ import { Loader2, FileText, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { buildEntriesReport } from "@/lib/reports/EntriesReport";
 import { buildFinancialReport } from "@/lib/reports/FinancialReport";
+import { buildAnnualReport } from "@/lib/reports/AnnualReport";
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 // ─────────────────────────────────────────────────────────
 // Helpers
@@ -63,6 +69,17 @@ export default function Reports() {
 
   const { data: prevMonthEntries } = trpc.entries.listByDateRange.useQuery(prevMonthRange);
   const { data: prevMonthExpenses } = trpc.expenses.listByDateRange.useQuery(prevMonthRange);
+
+  // Ano de referência do relatório Anual — usa o ano da Data Inicial selecionada
+  const reportYear = new Date(startDate + "T12:00:00").getFullYear();
+  const yearRange = useMemo(() => ({
+    startDate: new Date(reportYear, 0, 1),
+    endDate: new Date(reportYear, 11, 31, 23, 59, 59),
+  }), [reportYear]);
+
+  const { data: yearEntries } = trpc.entries.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
+  const { data: yearExpenses } = trpc.expenses.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
+  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: reportYear }, { enabled: reportType === "annual" });
 
   const pastorName    = settings?.pastorName    ?? "Pr. Reginaldo Medeiros";
   const treasurerName = settings?.treasurerName ?? "Ageovany";
@@ -194,6 +211,46 @@ export default function Reports() {
     }
   };
 
+  const generateAnnualReport = async () => {
+    setIsGenerating(true);
+    try {
+      if (!yearEntries || !yearExpenses) throw new Error("Nenhum dado encontrado para o ano selecionado");
+
+      const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
+      const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+      const sumAmounts = (items: { amount: string }[]) =>
+        Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
+      const monthlyData = MONTH_NAMES.map((name, monthIndex) => ({
+        name,
+        entriesRealized: sumAmounts(yearEntries.filter(e => new Date(e.entryDate).getUTCMonth() === monthIndex)),
+        entriesGoal: monthlyEntriesGoal,
+        expensesRealized: sumAmounts(yearExpenses.filter(e => new Date(e.expenseDate).getUTCMonth() === monthIndex)),
+        expensesGoal: monthlyExpensesGoal,
+      }));
+
+      const result = await buildAnnualReport({
+        year: reportYear,
+        pastorName,
+        treasurerName,
+        logoUrl: settings?.logoUrl,
+        monthlyData,
+      });
+      showPreview(result);
+      toast.success("Relatório Anual gerado com sucesso!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateReport =
+    reportType === "entries" ? generateEntriesReport :
+    reportType === "financial" ? generateFinancialReport :
+    generateAnnualReport;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -235,13 +292,20 @@ export default function Reports() {
                   <SelectContent>
                     <SelectItem value="entries">Entradas Dominical</SelectItem>
                     <SelectItem value="financial">Financeiro-Clerical</SelectItem>
+                    <SelectItem value="annual">Anual (Orçado x Realizado)</SelectItem>
                   </SelectContent>
                 </Select>
+                {reportType === "annual" && (
+                  <p className="text-xs text-muted-foreground">
+                    Usa o ano da Data Inicial ({reportYear}). Configure as metas na aba Orçamento Anual.
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {reportType !== "annual" && (
         <Card>
           <CardHeader>
             <CardTitle>Cotas Regional e Distrital</CardTitle>
@@ -276,8 +340,9 @@ export default function Reports() {
             })()}
           </CardContent>
         </Card>
+        )}
 
-        {costCenterTotals && costCenterTotals.length > 0 && (
+        {reportType !== "annual" && costCenterTotals && costCenterTotals.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Entradas por Ministério</CardTitle>
@@ -309,7 +374,7 @@ export default function Reports() {
             <CardTitle>Pré-visualização do Relatório</CardTitle>
             <div className="flex flex-wrap items-center gap-2">
               <Button
-                onClick={reportType === "entries" ? generateEntriesReport : generateFinancialReport}
+                onClick={generateReport}
                 disabled={isGenerating}
               >
                 {isGenerating ? (
