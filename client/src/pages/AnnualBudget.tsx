@@ -17,6 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
+import { yearRangeUTC } from "@/lib/dateRange";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -32,10 +33,7 @@ export default function AnnualBudget() {
   const [entriesGoalInput, setEntriesGoalInput] = useState("");
   const [expensesGoalInput, setExpensesGoalInput] = useState("");
 
-  const yearRange = useMemo(() => ({
-    startDate: new Date(year, 0, 1, 0, 0, 0),
-    endDate: new Date(year, 11, 31, 23, 59, 59),
-  }), [year]);
+  const yearRange = useMemo(() => yearRangeUTC(year), [year]);
 
   const { data: budget, isLoading: isLoadingBudget } = trpc.annualBudgets.getByYear.useQuery({ year });
   const { data: entries, isLoading: isLoadingEntries } = trpc.entries.listByDateRange.useQuery(yearRange);

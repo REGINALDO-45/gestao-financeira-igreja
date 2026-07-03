@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { monthRangeUTC } from "@/lib/dateRange";
 
 const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
@@ -65,14 +67,13 @@ export default function Dashboard() {
 
   const dateRange = useMemo(() => {
     const [y, m] = selectedMonth.split("-").map(Number);
-    return {
-      startDate: new Date(y, m - 1, 1),
-      endDate: new Date(y, m, 0, 23, 59, 59),
-    };
+    return monthRangeUTC(y, m - 1);
   }, [selectedMonth]);
 
   const { data: entries, isLoading: entriesLoading } = trpc.entries.listByDateRange.useQuery(dateRange);
   const { data: expenses, isLoading: expensesLoading } = trpc.expenses.listByDateRange.useQuery(dateRange);
+  const selectedYear = parseInt(selectedMonth.split("-")[0], 10);
+  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: selectedYear });
 
   const stats = useMemo(() => {
     if (!entries || !expenses) return null;
@@ -157,6 +158,11 @@ export default function Dashboard() {
 
   const balancePositive = (stats?.balance || 0) >= 0;
 
+  const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
+  const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+  const entriesGoalPct = monthlyEntriesGoal > 0 ? ((stats?.totalEntries || 0) / monthlyEntriesGoal) * 100 : null;
+  const expensesGoalPct = monthlyExpensesGoal > 0 ? ((stats?.totalExpenses || 0) / monthlyExpensesGoal) * 100 : null;
+
   const kpis = [
     {
       label: "Total de Entradas",
@@ -167,6 +173,8 @@ export default function Dashboard() {
       badgeClass: "bg-emerald-500/10",
       accent: "from-emerald-500/15",
       valueClass: "text-emerald-600 dark:text-emerald-400",
+      goalPct: entriesGoalPct,
+      goalGood: entriesGoalPct !== null && entriesGoalPct >= 100,
     },
     {
       label: "Total de Saídas",
@@ -177,6 +185,8 @@ export default function Dashboard() {
       badgeClass: "bg-red-500/10",
       accent: "from-red-500/15",
       valueClass: "text-red-600 dark:text-red-400",
+      goalPct: expensesGoalPct,
+      goalGood: expensesGoalPct !== null && expensesGoalPct <= 100,
     },
     {
       label: "Saldo Líquido",
@@ -263,6 +273,17 @@ export default function Dashboard() {
                     {HintIcon && <HintIcon className="h-3.5 w-3.5" />}
                     {kpi.hint}
                   </p>
+                  {kpi.goalPct !== undefined && kpi.goalPct !== null && (
+                    <Badge
+                      className={`mt-2 text-[10px] font-medium ${
+                        kpi.goalGood
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {kpi.goalPct.toFixed(0)}% da meta mensal
+                    </Badge>
+                  )}
                 </CardContent>
               </Card>
             );

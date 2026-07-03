@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { buildEntriesReport } from "@/lib/reports/EntriesReport";
 import { buildFinancialReport } from "@/lib/reports/FinancialReport";
 import { buildAnnualReport } from "@/lib/reports/AnnualReport";
+import { utcDayStart, utcDayEnd, monthRangeUTC, yearRangeUTC } from "@/lib/dateRange";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -50,8 +51,8 @@ export default function Reports() {
   };
 
   const dateRange = useMemo(() => ({
-    startDate: new Date(startDate + "T00:00:00"),
-    endDate: new Date(endDate + "T23:59:59"),
+    startDate: utcDayStart(startDate),
+    endDate: utcDayEnd(endDate),
   }), [startDate, endDate]);
 
   const { data: settings } = trpc.churchSettings.get.useQuery();
@@ -61,10 +62,8 @@ export default function Reports() {
 
   // Período do mês anterior, usado para calcular as cotas regional/distrital
   const prevMonthRange = useMemo(() => {
-    const d = new Date(startDate + "T12:00:00");
-    const prevMonthStart = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(d.getFullYear(), d.getMonth(), 0, 23, 59, 59);
-    return { startDate: prevMonthStart, endDate: prevMonthEnd };
+    const [y, m] = startDate.split("-").map(Number);
+    return monthRangeUTC(y, m - 2);
   }, [startDate]);
 
   const { data: prevMonthEntries } = trpc.entries.listByDateRange.useQuery(prevMonthRange);
@@ -72,10 +71,7 @@ export default function Reports() {
 
   // Ano de referência do relatório Anual — usa o ano da Data Inicial selecionada
   const reportYear = new Date(startDate + "T12:00:00").getFullYear();
-  const yearRange = useMemo(() => ({
-    startDate: new Date(reportYear, 0, 1),
-    endDate: new Date(reportYear, 11, 31, 23, 59, 59),
-  }), [reportYear]);
+  const yearRange = useMemo(() => yearRangeUTC(reportYear), [reportYear]);
 
   const { data: yearEntries } = trpc.entries.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
   const { data: yearExpenses } = trpc.expenses.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
@@ -110,7 +106,7 @@ export default function Reports() {
       const depositDate = nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
       const prevTotal = Math.round((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
-      const prevMo = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      const prevMo = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
       const cotasData = prevTotal > 0 ? {
         prevMonthRef: prevMo.charAt(0).toUpperCase() + prevMo.slice(1),
         prevMonthEntriesTotal: prevTotal,
@@ -195,7 +191,7 @@ export default function Reports() {
         cotaRegionalTotal,
         cotaDistritalTotal,
         prevMonthRef: (() => {
-          const ref = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+          const ref = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
           return ref.charAt(0).toUpperCase() + ref.slice(1);
         })(),
         logoUrl: settings?.logoUrl,
@@ -316,7 +312,7 @@ export default function Reports() {
               return (
                 <>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Calculadas sobre o total de entradas do mês anterior ({prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}):{" "}
+                    Calculadas sobre o total de entradas do mês anterior ({prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}):{" "}
                     <span className="font-semibold">
                       R$ {prevTotal.toFixed(2)}
                     </span>
