@@ -20,15 +20,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/useMobile";
 
 export default function CostCenters() {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
+  const [formData, setFormData] = useState({ name: "", description: "" });
+  const isMobile = useIsMobile();
 
   const { data: costCenters, isLoading } = trpc.costCenters.list.useQuery();
   const createCostCenter = trpc.costCenters.create.useMutation();
@@ -46,10 +45,7 @@ export default function CostCenters() {
         description: formData.description || undefined,
       });
       toast.success("Centro de custo criado com sucesso!");
-      setFormData({
-        name: "",
-        description: "",
-      });
+      setFormData({ name: "", description: "" });
       setOpen(false);
     } catch (error) {
       toast.error("Erro ao criar centro de custo");
@@ -59,7 +55,7 @@ export default function CostCenters() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="animate-spin w-8 h-8" />
         </div>
       </DashboardLayout>
@@ -68,24 +64,25 @@ export default function CostCenters() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Centros de Custo</h1>
-            <p className="text-muted-foreground">Departamentos e projetos da igreja</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Centros de Custo</h1>
+            <p className="text-sm text-muted-foreground">Departamentos e projetos da igreja</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Centro de Custo
+              <Button size={isMobile ? "sm" : "default"} id="new-cost-center-btn">
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Novo Centro de Custo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[95vw] sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Criar Novo Centro de Custo</DialogTitle>
               </DialogHeader>
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={onSubmit} className="space-y-4 pt-2">
                 <div>
                   <Label htmlFor="name">Nome *</Label>
                   <Input
@@ -106,7 +103,8 @@ export default function CostCenters() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={createCostCenter.isPending}>
+                  {createCostCenter.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Criar Centro de Custo
                 </Button>
               </form>
@@ -115,35 +113,54 @@ export default function CostCenters() {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Lista de Centros de Custo</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Lista de Centros de Custo</CardTitle>
           </CardHeader>
           <CardContent>
             {costCenters && costCenters.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Data de Criação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {costCenters.map((cc) => (
-                      <TableRow key={cc.id}>
-                        <TableCell className="font-medium">{cc.name}</TableCell>
-                        <TableCell>{cc.description || "-"}</TableCell>
-                        <TableCell>
-                          {new Date(cc.createdAt).toLocaleDateString("pt-BR")}
-                        </TableCell>
+              <>
+                {/* Mobile: card list */}
+                <div className="flex flex-col gap-3 sm:hidden">
+                  {costCenters.map((cc) => (
+                    <div key={cc.id} className="rounded-lg border bg-card p-3 space-y-1.5">
+                      <p className="font-semibold text-sm">{cc.name}</p>
+                      {cc.description && (
+                        <p className="text-xs text-muted-foreground">{cc.description}</p>
+                      )}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="w-3 h-3" />
+                        <span>Criado em {new Date(cc.createdAt).toLocaleDateString("pt-BR")}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: standard table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Data de Criação</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {costCenters.map((cc) => (
+                        <TableRow key={cc.id}>
+                          <TableCell className="font-medium">{cc.name}</TableCell>
+                          <TableCell>{cc.description || "-"}</TableCell>
+                          <TableCell>
+                            {new Date(cc.createdAt).toLocaleDateString("pt-BR")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-muted-foreground text-sm">
                 Nenhum centro de custo cadastrado
               </div>
             )}

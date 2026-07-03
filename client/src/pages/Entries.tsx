@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -27,20 +28,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X, Pencil } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
+import { useIsMobile } from "@/hooks/useMobile";
 import { EntryForm } from "@/components/forms/EntryForm";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "../../../server/routers";
-
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Entry = RouterOutputs["entries"]["list"][number];
 
 export default function Entries() {
   const { user } = useAuthGuard();
   const [open, setOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const { data: entries, isLoading } = trpc.entries.list.useQuery();
   const { data: members } = trpc.members.list.useQuery();
   const { data: costCenters } = trpc.costCenters.list.useQuery();
@@ -90,12 +86,17 @@ export default function Entries() {
     setFilterDateTo("");
   };
 
-  const hasActiveFilters = (filterCategory && filterCategory !== "all") || (filterPaymentMethod && filterPaymentMethod !== "all") || (filterMemberId && filterMemberId !== "all") || filterDateFrom || filterDateTo;
+  const hasActiveFilters =
+    (filterCategory && filterCategory !== "all") ||
+    (filterPaymentMethod && filterPaymentMethod !== "all") ||
+    (filterMemberId && filterMemberId !== "all") ||
+    filterDateFrom ||
+    filterDateTo;
 
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="animate-spin w-8 h-8" />
         </div>
       </DashboardLayout>
@@ -104,21 +105,22 @@ export default function Entries() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Entradas</h1>
-            <p className="text-muted-foreground">Dízimos, ofertas e outras receitas</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Entradas</h1>
+            <p className="text-sm text-muted-foreground">Dízimos, ofertas e outras receitas</p>
           </div>
           {isTreasurer(user?.role) && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Entrada
+                <Button size={isMobile ? "sm" : "default"} id="new-entry-btn">
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Nova Entrada</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Registrar Nova Entrada</DialogTitle>
                 </DialogHeader>
@@ -130,15 +132,15 @@ export default function Entries() {
 
         {/* Filtros */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Filtros</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div>
-                <Label htmlFor="filter-category" className="text-sm">Categoria</Label>
+                <Label htmlFor="filter-category" className="text-xs sm:text-sm">Categoria</Label>
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger id="filter-category">
+                  <SelectTrigger id="filter-category" className="text-xs sm:text-sm h-9">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
@@ -159,9 +161,9 @@ export default function Entries() {
               </div>
 
               <div>
-                <Label htmlFor="filter-payment" className="text-sm">Forma de Pagamento</Label>
+                <Label htmlFor="filter-payment" className="text-xs sm:text-sm">Pagamento</Label>
                 <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
-                  <SelectTrigger id="filter-payment">
+                  <SelectTrigger id="filter-payment" className="text-xs sm:text-sm h-9">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
@@ -176,9 +178,9 @@ export default function Entries() {
               </div>
 
               <div>
-                <Label htmlFor="filter-member" className="text-sm">Membro</Label>
+                <Label htmlFor="filter-member" className="text-xs sm:text-sm">Membro</Label>
                 <Select value={filterMemberId} onValueChange={setFilterMemberId}>
-                  <SelectTrigger id="filter-member">
+                  <SelectTrigger id="filter-member" className="text-xs sm:text-sm h-9">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -193,48 +195,46 @@ export default function Entries() {
               </div>
 
               <div>
-                <Label htmlFor="filter-date-from" className="text-sm">Data De</Label>
+                <Label htmlFor="filter-date-from" className="text-xs sm:text-sm">Data De</Label>
                 <Input
                   id="filter-date-from"
                   type="date"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
+                  className="text-xs sm:text-sm h-9"
                 />
               </div>
 
               <div>
-                <Label htmlFor="filter-date-to" className="text-sm">Data Até</Label>
+                <Label htmlFor="filter-date-to" className="text-xs sm:text-sm">Data Até</Label>
                 <Input
                   id="filter-date-to"
                   type="date"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
+                  className="text-xs sm:text-sm h-9"
                 />
               </div>
             </div>
 
             {hasActiveFilters && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {filteredEntries.length} resultado(s) encontrado(s)
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {filteredEntries.length} resultado(s)
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  Limpar Filtros
+                <Button variant="outline" size="sm" onClick={clearFilters} className="gap-2 text-xs sm:text-sm">
+                  <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Limpar
                 </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Lista de Entradas */}
         <Card>
-          <CardHeader>
-            <CardTitle>Lançamentos de Entradas</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Lançamentos de Entradas</CardTitle>
           </CardHeader>
           <CardContent>
             {filteredEntries && filteredEntries.length > 0 ? (
@@ -248,15 +248,13 @@ export default function Entries() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Forma de Pagamento</TableHead>
                       <TableHead>Culto/Domingo</TableHead>
-                      <TableHead>Ministério</TableHead>
-                      {isTreasurer(user?.role) && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          {new Date(entry.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                          {new Date(entry.entryDate).toLocaleDateString("pt-BR")}
                         </TableCell>
                         <TableCell className="capitalize">
                           {entry.category.replace(/_/g, " ")}
@@ -267,27 +265,13 @@ export default function Entries() {
                         </TableCell>
                         <TableCell className="capitalize">{entry.paymentMethod}</TableCell>
                         <TableCell>{entry.cultoSunday || "-"}</TableCell>
-                        <TableCell>
-                          {entry.costCenterId ? costCenterNameById.get(entry.costCenterId) ?? "-" : "-"}
-                        </TableCell>
-                        {isTreasurer(user?.role) && (
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingEntry(entry)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        )}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-muted-foreground text-sm">
                 Nenhuma entrada registrada
               </div>
             )}
