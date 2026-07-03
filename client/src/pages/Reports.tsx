@@ -71,8 +71,20 @@ export default function Reports() {
     setIsGenerating(true);
     try {
       if (!entries) throw new Error("Nenhum dado encontrado para o período selecionado");
-      const tithes    = entries.filter(e => e.category === "dizimo").map(e => ({ name: e.description || "Dizimista", amount: Math.round(parseFloat(e.amount) * 100) / 100 }));
-      const offerings = entries.filter(e => e.category === "oferta").map(e => ({ name: e.description || "Ofertante", amount: Math.round(parseFloat(e.amount) * 100) / 100 }));
+      // Vários lançamentos podem ter o mesmo nome (ex: lançamentos por membro sem
+      // descrição, ou totais semanais consolidados) — agrupamos por nome e somamos
+      // para evitar dezenas de linhas repetidas no PDF.
+      const groupByName = (list: typeof entries, fallback: string) => {
+        const totals = new Map<string, number>();
+        list.forEach(e => {
+          const name = e.description || fallback;
+          const amount = Math.round(parseFloat(e.amount) * 100) / 100;
+          totals.set(name, Math.round(((totals.get(name) ?? 0) + amount) * 100) / 100);
+        });
+        return Array.from(totals, ([name, amount]) => ({ name, amount }));
+      };
+      const tithes    = groupByName(entries.filter(e => e.category === "dizimo"), "Dizimista");
+      const offerings = groupByName(entries.filter(e => e.category === "oferta"), "Ofertante");
       const d = new Date(startDate + "T12:00:00");
       const wd = d.toLocaleDateString("pt-BR", { weekday: "long" });
       const mo = d.toLocaleDateString("pt-BR", { month: "long" });
