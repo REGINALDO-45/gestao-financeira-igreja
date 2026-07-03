@@ -43,25 +43,21 @@ export default function Reports() {
     });
   };
 
+  const dateRange = useMemo(() => ({
+    startDate: new Date(startDate + "T00:00:00"),
+    endDate: new Date(endDate + "T23:59:59"),
+  }), [startDate, endDate]);
+
   const { data: settings } = trpc.churchSettings.get.useQuery();
-  const { data: entries } = trpc.entries.listByDateRange.useQuery({
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
-  });
-  const { data: expenses } = trpc.expenses.listByDateRange.useQuery({
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
-  });
-  const { data: costCenterTotals } = trpc.entries.summaryByCostCenter.useQuery({
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
-  });
+  const { data: entries } = trpc.entries.listByDateRange.useQuery(dateRange);
+  const { data: expenses } = trpc.expenses.listByDateRange.useQuery(dateRange);
+  const { data: costCenterTotals } = trpc.entries.summaryByCostCenter.useQuery(dateRange);
 
   // Período do mês anterior, usado para calcular as cotas regional/distrital
   const prevMonthRange = useMemo(() => {
     const d = new Date(startDate + "T12:00:00");
     const prevMonthStart = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(d.getFullYear(), d.getMonth(), 0);
+    const prevMonthEnd = new Date(d.getFullYear(), d.getMonth(), 0, 23, 59, 59);
     return { startDate: prevMonthStart, endDate: prevMonthEnd };
   }, [startDate]);
 
