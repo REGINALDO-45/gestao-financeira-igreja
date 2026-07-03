@@ -256,7 +256,7 @@ export default function Entries() {
                     {filteredEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          {new Date(entry.entryDate).toLocaleDateString("pt-BR")}
+                          {new Date(entry.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
                           {entry.category.replace(/_/g, " ")}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { Loader2, Plus, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
+import { RecurringExpensesDialog } from "@/components/forms/RecurringExpensesDialog";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 
@@ -52,6 +53,20 @@ export default function Expenses() {
 
   const { data: expenses, isLoading } = trpc.expenses.list.useQuery();
   const { data: costCenters } = trpc.costCenters.list.useQuery();
+  const { data: settings } = trpc.churchSettings.get.useQuery();
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (
+      isTreasurer(user?.role) &&
+      settings &&
+      settings.lastRecurringExpensePromptMonth !== currentMonth
+    ) {
+      setRecurringDialogOpen(true);
+    }
+  }, [settings, user?.role, currentMonth]);
 
   const filteredExpenses = useMemo(() => {
     if (!expenses) return [];
@@ -262,7 +277,7 @@ export default function Expenses() {
                     {filteredExpenses.map((expense) => (
                       <TableRow key={expense.id}>
                         <TableCell>
-                          {new Date(expense.expenseDate).toLocaleDateString("pt-BR")}
+                          {new Date(expense.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
                           {expense.category.replace(/_/g, " ")}
@@ -313,6 +328,14 @@ export default function Expenses() {
             )}
           </DialogContent>
         </Dialog>
+
+        {isTreasurer(user?.role) && (
+          <RecurringExpensesDialog
+            open={recurringDialogOpen}
+            onOpenChange={setRecurringDialogOpen}
+            month={currentMonth}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
