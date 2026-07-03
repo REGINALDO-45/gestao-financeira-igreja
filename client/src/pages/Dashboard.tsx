@@ -1,6 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AreaChart,
   Area,
@@ -28,6 +35,9 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
+const sumAmounts = (items: { amount: string }[]) =>
+  Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -35,17 +45,41 @@ const brlCompact = (n: number) =>
   "R$ " +
   n.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 
+const buildMonthOptions = () => {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    options.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return options;
+};
+
+const monthOptions = buildMonthOptions();
+
 export default function Dashboard() {
   const { user } = useAuthGuard();
-  const { data: entries, isLoading: entriesLoading } = trpc.entries.list.useQuery();
-  const { data: expenses, isLoading: expensesLoading } = trpc.expenses.list.useQuery();
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
+
+  const dateRange = useMemo(() => {
+    const [y, m] = selectedMonth.split("-").map(Number);
+    return {
+      startDate: new Date(y, m - 1, 1),
+      endDate: new Date(y, m, 0, 23, 59, 59),
+    };
+  }, [selectedMonth]);
+
+  const { data: entries, isLoading: entriesLoading } = trpc.entries.listByDateRange.useQuery(dateRange);
+  const { data: expenses, isLoading: expensesLoading } = trpc.expenses.listByDateRange.useQuery(dateRange);
 
   const stats = useMemo(() => {
     if (!entries || !expenses) return null;
 
-    const totalEntries = entries.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const balance = totalEntries - totalExpenses;
+    const totalEntries = sumAmounts(entries);
+    const totalExpenses = sumAmounts(expenses);
+    const balance = Math.round((totalEntries - totalExpenses) * 100) / 100;
 
     return {
       totalEntries,
@@ -54,11 +88,12 @@ export default function Dashboard() {
     };
   }, [entries, expenses]);
 
-  const monthlyData = useMemo(() => {
-    if (!entries || !expenses) return [];
+  const { data: allEntries } = trpc.entries.list.useQuery();
+  const { data: allExpenses } = trpc.expenses.list.useQuery();
 
-    // key "YYYY-MM" → mantém um sortKey numérico real e um rótulo legível,
-    // evitando ordenar pelo texto do mês em português (que o Date não parseia)
+  const monthlyData = useMemo(() => {
+    if (!allEntries || !allExpenses) return [];
+
     const months: Record<
       string,
       { entradas: number; saidas: number; sortKey: number; label: string }
@@ -80,13 +115,17 @@ export default function Dashboard() {
       months[key][field] += parseFloat(amount);
     };
 
-    entries.forEach((e) => add(e.entryDate, "entradas", e.amount));
-    expenses.forEach((e) => add(e.expenseDate, "saidas", e.amount));
+    allEntries.forEach((e) => add(e.entryDate, "entradas", e.amount));
+    allExpenses.forEach((e) => add(e.expenseDate, "saidas", e.amount));
 
     return Object.values(months)
-      .sort((a, b) => a.sortKey - b.sortKey) // antigo → recente (esquerda → direita)
-      .map(({ label, entradas, saidas }) => ({ month: label, entradas, saidas }));
-  }, [entries, expenses]);
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ label, entradas, saidas }) => ({
+        month: label,
+        entradas: Math.round(entradas * 100) / 100,
+        saidas: Math.round(saidas * 100) / 100,
+      }));
+  }, [allEntries, allExpenses]);
 
   const categoryData = useMemo(() => {
     if (!entries) return [];
@@ -95,12 +134,12 @@ export default function Dashboard() {
 
     entries.forEach((entry) => {
       const cat = entry.category.replace(/_/g, " ").toUpperCase();
-      categories[cat] = (categories[cat] || 0) + parseFloat(entry.amount);
+      categories[cat] = (categories[cat] || 0) + parseFloat(entry.amount) * 100;
     });
 
     return Object.entries(categories).map(([name, value]) => ({
       name,
-      value: parseFloat(value.toFixed(2)),
+      value: Math.round(value) / 100,
     }));
   }, [entries]);
 
@@ -122,7 +161,7 @@ export default function Dashboard() {
     {
       label: "Total de Entradas",
       value: brl(stats?.totalEntries || 0),
-      hint: "Dízimos e ofertas",
+      hint: `Dízimos e ofertas do mês`,
       icon: TrendingUp,
       iconClass: "text-emerald-600 dark:text-emerald-400",
       badgeClass: "bg-emerald-500/10",
@@ -169,14 +208,28 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Visão geral da situação financeira</p>
-          {user && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Perfil: <span className="font-semibold capitalize">{user.role}</span>
-            </p>
-          )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Visão geral da situação financeira</p>
+            {user && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Perfil: <span className="font-semibold capitalize">{user.role}</span>
+              </p>
+            )}
+          </div>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Cards de Saldo */}

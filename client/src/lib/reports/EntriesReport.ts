@@ -10,13 +10,16 @@ import {
   iconHeart,
   iconHandHeart,
   iconCross,
+  iconArrowDown,
   tableRow,
   NAVY,
   RED,
   GRAY1,
   GRAY2,
+  GRAY3,
   WHITE,
-  LIGHT
+  LIGHT,
+  GOLD
 } from "./core";
 
 export const buildEntriesReport = async (
@@ -26,7 +29,13 @@ export const buildEntriesReport = async (
   depositDate: string,
   pastorName: string,
   treasurerName: string,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  cotas?: {
+    prevMonthRef: string;
+    prevMonthEntriesTotal: number;
+    cotaRegional: number;
+    cotaDistrital: number;
+  }
 ) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -252,6 +261,67 @@ export const buildEntriesReport = async (
   doc.setTextColor(...NAVY);
   doc.text(brl(totalAll), PW - MR - 4, cur.y + cardH / 2 + 2, { align: "right" });
   cur.y += cardH + 9;
+
+  // ── COTAS REGIONAL E DISTRITAL ──
+  if (cotas && cotas.prevMonthEntriesTotal > 0) {
+    const cotasH = 52;
+    ensureSpace(cotasH);
+
+    const AMBER: [number, number, number] = [180, 83, 9];
+    const AMBER_BG: [number, number, number] = [255, 251, 235];
+    const AMBER_LIGHT: [number, number, number] = [254, 243, 199];
+
+    filledRect(doc, ML, cur.y, W, 7.5, AMBER);
+    iconArrowDown(doc, ML + 5, cur.y + 3.75, 5, AMBER, WHITE);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text("COTAS — DESCONTOS SOBRE ENTRADAS DO MÊS ANTERIOR", ML + 14, cur.y + 5.2);
+    cur.y += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY3);
+    doc.text(`Base de cálculo: entradas de ${cotas.prevMonthRef} = ${brl(cotas.prevMonthEntriesTotal)}`, ML + 2, cur.y + 4);
+    cur.y += 7;
+
+    const cotaRows = [
+      { label: "Cota Regional (11%)", value: cotas.cotaRegional },
+      { label: "Cota Distrital (4%)", value: cotas.cotaDistrital },
+    ];
+
+    cotaRows.forEach((row, i) => {
+      const rh = 7;
+      filledRect(doc, ML, cur.y, W, rh, i % 2 === 0 ? AMBER_BG : AMBER_LIGHT);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...GRAY1);
+      doc.text(row.label, ML + 4, cur.y + 4.8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...AMBER);
+      doc.text(`- ${brl(row.value)}`, PW - MR - 2, cur.y + 4.8, { align: "right" });
+      cur.y += rh;
+    });
+
+    const totalCotas = cotas.cotaRegional + cotas.cotaDistrital;
+    filledRect(doc, ML, cur.y, W, 7, AMBER);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text("TOTAL COTAS A DESCONTAR", ML + 4, cur.y + 4.8);
+    doc.text(`- ${brl(totalCotas)}`, PW - MR - 2, cur.y + 4.8, { align: "right" });
+    cur.y += 7;
+
+    const liquidoAposCotas = totalAll - totalCotas;
+    filledRect(doc, ML, cur.y, W, 7, [239, 246, 255]);
+    filledRect(doc, ML, cur.y, 1.6, 7, NAVY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...NAVY);
+    doc.text("SALDO LÍQUIDO APÓS COTAS", ML + 6, cur.y + 4.8);
+    doc.text(brl(liquidoAposCotas), PW - MR - 2, cur.y + 4.8, { align: "right" });
+    cur.y += 14;
+  }
 
   // ── MINIMALIST CLOSING ──
   const CLOSING_BLOCK_H = 34;

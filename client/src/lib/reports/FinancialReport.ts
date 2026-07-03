@@ -41,8 +41,11 @@ export const buildFinancialReport = async (data: {
   despesasAdminTotal: number;
   investimentosTotal: number;
   prevMonthEntriesTotal: number;
+  prevMonthExpensesTotal: number;
+  prevMonthBalance: number;
   cotaRegionalTotal: number;
   cotaDistritalTotal: number;
+  prevMonthRef: string;
   logoUrl?: string | null;
 }) => {
   const JsPDF = await getJsPDF();
@@ -123,10 +126,18 @@ export const buildFinancialReport = async (data: {
   // ── 4 KPI CARDS (with colour icon badges) ──
   const kpiW = (W - 9) / 4;
   const kpiH = 20;
+  const fmtPct = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? "Novo" : "—";
+    const pct = ((current - previous) / previous) * 100;
+    const sign = pct >= 0 ? "+" : "";
+    const arrow = pct >= 0 ? "▲" : "▼";
+    return `${arrow} ${sign}${pct.toFixed(1).replace(".", ",")}% vs Mês Ant.`;
+  };
+
   const kpis = [
-    { label: "TOTAL DE ENTRADAS", value: brl(data.totalEntries), color: GREEN, sub: "▲ +12,5% vs Mês Ant.", icon: iconArrowDown },
-    { label: "TOTAL DE SAÍDAS",   value: brl(data.totalExpenses), color: [220,38,38] as [number,number,number], sub: "▼ -8,2% vs Mês Ant.", icon: iconArrowUp },
-    { label: "SALDO DO MÊS",      value: brl(data.balance), color: [59,130,246] as [number,number,number], sub: "Superávit", icon: iconWallet },
+    { label: "TOTAL DE ENTRADAS", value: brl(data.totalEntries), color: GREEN, sub: fmtPct(data.totalEntries, data.prevMonthEntriesTotal), icon: iconArrowDown },
+    { label: "TOTAL DE SAÍDAS",   value: brl(data.totalExpenses), color: [220,38,38] as [number,number,number], sub: fmtPct(data.totalExpenses, data.prevMonthExpensesTotal), icon: iconArrowUp },
+    { label: "SALDO DO MÊS",      value: brl(data.balance), color: [59,130,246] as [number,number,number], sub: data.balance >= 0 ? "Superávit" : "Déficit", icon: iconWallet },
     { label: "SALDO DISPONÍVEL",  value: brl(data.balanceAvailable), color: [245,158,11] as [number,number,number], sub: "Caixa + Banco", icon: iconBank },
   ];
 
@@ -160,7 +171,7 @@ export const buildFinancialReport = async (data: {
 
   // Left card — Demonstrativo Financeiro
   const demoRows = [
-    { label: "1. Saldo Anterior (Mês Ant.)", value: "R$ 15.240,50", bold: true, bg: LIGHT },
+    { label: "1. Saldo Anterior (Mês Ant.)", value: brl(data.prevMonthBalance), bold: true, bg: LIGHT },
     { label: "2. ENTRADAS", value: brl(data.totalEntries), bold: true, bg: [240,253,244] as [number,number,number], color: GREEN },
     { label: "  2.1 Dízimos",            value: brl(data.dizimosTotal), bold: false, bg: WHITE },
     { label: "  2.2 Ofertas",            value: brl(data.ofertasTotal), bold: false, bg: LIGHT },
@@ -175,9 +186,10 @@ export const buildFinancialReport = async (data: {
     { label: "  3.4 Investimentos",         value: brl(data.investimentosTotal), bold: false, bg: LIGHT },
     { label: "4. SALDO DO MÊS",     value: brl(data.balance),          bold: true, bg: [239,246,255] as [number,number,number], color: [30,58,138] as [number,number,number] },
     { label: "5. SALDO DISPONÍVEL", value: brl(data.balanceAvailable), bold: true, bg: [255,251,235] as [number,number,number], color: [120,53,15] as [number,number,number] },
-    { label: "6. COTAS (s/ Entradas do Mês Anterior)", value: brl(-(data.cotaRegionalTotal + data.cotaDistritalTotal)), bold: true, bg: [255,242,242] as [number,number,number], color: RED },
-    { label: "  6.1 Cota Regional (11%)",  value: brl(-data.cotaRegionalTotal),  bold: false, bg: WHITE },
-    { label: "  6.2 Cota Distrital (4%)",  value: brl(-data.cotaDistritalTotal), bold: false, bg: LIGHT },
+    { label: `6. COTAS (s/ Entradas de ${data.prevMonthRef})`, value: brl(-(data.cotaRegionalTotal + data.cotaDistritalTotal)), bold: true, bg: [255,242,242] as [number,number,number], color: RED },
+    { label: `  6.0 Base: Entradas ${data.prevMonthRef}`, value: brl(data.prevMonthEntriesTotal), bold: false, bg: WHITE },
+    { label: "  6.1 Cota Regional (11%)",  value: brl(-data.cotaRegionalTotal),  bold: false, bg: LIGHT },
+    { label: "  6.2 Cota Distrital (4%)",  value: brl(-data.cotaDistritalTotal), bold: false, bg: WHITE },
     { label: "7. SALDO APÓS COTAS", value: brl(data.balanceAvailable - data.cotaRegionalTotal - data.cotaDistritalTotal), bold: true, bg: [240,253,244] as [number,number,number], color: GREEN },
   ];
 

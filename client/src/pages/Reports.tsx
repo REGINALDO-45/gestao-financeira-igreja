@@ -66,6 +66,7 @@ export default function Reports() {
   }, [startDate]);
 
   const { data: prevMonthEntries } = trpc.entries.listByDateRange.useQuery(prevMonthRange);
+  const { data: prevMonthExpenses } = trpc.expenses.listByDateRange.useQuery(prevMonthRange);
 
   const pastorName    = settings?.pastorName    ?? "Pr. Reginaldo Medeiros";
   const treasurerName = settings?.treasurerName ?? "Ageovany";
@@ -74,8 +75,8 @@ export default function Reports() {
     setIsGenerating(true);
     try {
       if (!entries) throw new Error("Nenhum dado encontrado para o período selecionado");
-      const tithes    = entries.filter(e => e.category === "dizimo").map(e => ({ name: e.description || "Dizimista", amount: parseFloat(e.amount) }));
-      const offerings = entries.filter(e => e.category === "oferta").map(e => ({ name: e.description || "Ofertante", amount: parseFloat(e.amount) }));
+      const tithes    = entries.filter(e => e.category === "dizimo").map(e => ({ name: e.description || "Dizimista", amount: Math.round(parseFloat(e.amount) * 100) / 100 }));
+      const offerings = entries.filter(e => e.category === "oferta").map(e => ({ name: e.description || "Ofertante", amount: Math.round(parseFloat(e.amount) * 100) / 100 }));
       const d = new Date(startDate + "T12:00:00");
       const wd = d.toLocaleDateString("pt-BR", { weekday: "long" });
       const mo = d.toLocaleDateString("pt-BR", { month: "long" });
@@ -83,7 +84,16 @@ export default function Reports() {
       const nd = new Date(d); nd.setDate(d.getDate() + 1);
       const depositDate = nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
-      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName, settings?.logoUrl);
+      const prevTotal = Math.round((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+      const prevMo = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      const cotasData = prevTotal > 0 ? {
+        prevMonthRef: prevMo.charAt(0).toUpperCase() + prevMo.slice(1),
+        prevMonthEntriesTotal: prevTotal,
+        cotaRegional: Math.round(prevTotal * 11) / 100,
+        cotaDistrital: Math.round(prevTotal * 4) / 100,
+      } : undefined;
+
+      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName, settings?.logoUrl, cotasData);
       showPreview(result);
       toast.success("Relatório de Entradas gerado com sucesso!");
     } catch (error) {
@@ -98,14 +108,20 @@ export default function Reports() {
     setIsGenerating(true);
     try {
       if (!entries || !expenses) throw new Error("Nenhum dado encontrado para o período selecionado");
-      const totalEntries  = entries.reduce((s, e) => s + parseFloat(e.amount), 0);
-      const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+
+      const safeSum = (items: { amount: string }[]) =>
+        Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
+      const totalEntries  = safeSum(entries);
+      const totalExpenses = safeSum(expenses);
       const d = new Date(startDate + "T12:00:00");
       const mo = d.toLocaleDateString("pt-BR", { month: "long" });
 
-      const prevMonthEntriesTotal = (prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0);
-      const cotaRegionalTotal = prevMonthEntriesTotal * 0.11;
-      const cotaDistritalTotal = prevMonthEntriesTotal * 0.04;
+      const prevMonthEntriesTotal = safeSum(prevMonthEntries ?? []);
+      const prevMonthExpensesTotal = safeSum(prevMonthExpenses ?? []);
+      const prevMonthBalance = Math.round((prevMonthEntriesTotal - prevMonthExpensesTotal) * 100) / 100;
+      const cotaRegionalTotal = Math.round(prevMonthEntriesTotal * 11) / 100;
+      const cotaDistritalTotal = Math.round(prevMonthEntriesTotal * 4) / 100;
 
       const result = await buildFinancialReport({
         refDate: `${mo.charAt(0).toUpperCase() + mo.slice(1)} ${d.getFullYear()}`,
@@ -113,21 +129,27 @@ export default function Reports() {
         treasurerName,
         totalEntries,
         totalExpenses,
-        balance: totalEntries - totalExpenses,
-        balanceAvailable: totalEntries - totalExpenses,
-        dizimosTotal: entries.filter(e => e.category === "dizimo").reduce((s, e) => s + parseFloat(e.amount), 0),
-        ofertasTotal: entries.filter(e => e.category === "oferta").reduce((s, e) => s + parseFloat(e.amount), 0),
-        ofertasEspeciaisTotal: entries.filter(e => ["oferta_especial","campanha","missoes","construcao"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        bazarTotal: entries.filter(e => e.category === "bazar").reduce((s, e) => s + parseFloat(e.amount), 0),
-        almocoTotal: entries.filter(e => ["almoco_beneficente","cantina"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        outrasEntradasTotal: entries.filter(e => ["doacao","outras_receitas"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        despesasFixasTotal: expenses.filter(e => ["agua","energia","internet","aluguel"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        despesasMinisteriaisTotal: expenses.filter(e => ["evangelismo","missoes"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        despesasAdminTotal: expenses.filter(e => ["material_limpeza","manutencao","outras_despesas"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
-        investimentosTotal: expenses.filter(e => ["construcao","equipamentos"].includes(e.category)).reduce((s, e) => s + parseFloat(e.amount), 0),
+        balance: Math.round((totalEntries - totalExpenses) * 100) / 100,
+        balanceAvailable: Math.round((totalEntries - totalExpenses) * 100) / 100,
+        dizimosTotal: safeSum(entries.filter(e => e.category === "dizimo")),
+        ofertasTotal: safeSum(entries.filter(e => e.category === "oferta")),
+        ofertasEspeciaisTotal: safeSum(entries.filter(e => ["oferta_especial","campanha","missoes","construcao"].includes(e.category))),
+        bazarTotal: safeSum(entries.filter(e => e.category === "bazar")),
+        almocoTotal: safeSum(entries.filter(e => ["almoco_beneficente","cantina"].includes(e.category))),
+        outrasEntradasTotal: safeSum(entries.filter(e => ["doacao","outras_receitas"].includes(e.category))),
+        despesasFixasTotal: safeSum(expenses.filter(e => ["agua","energia","internet","aluguel"].includes(e.category))),
+        despesasMinisteriaisTotal: safeSum(expenses.filter(e => ["evangelismo","missoes"].includes(e.category))),
+        despesasAdminTotal: safeSum(expenses.filter(e => ["material_limpeza","manutencao","outras_despesas"].includes(e.category))),
+        investimentosTotal: safeSum(expenses.filter(e => ["construcao","equipamentos"].includes(e.category))),
         prevMonthEntriesTotal,
+        prevMonthExpensesTotal,
+        prevMonthBalance,
         cotaRegionalTotal,
         cotaDistritalTotal,
+        prevMonthRef: (() => {
+          const ref = prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+          return ref.charAt(0).toUpperCase() + ref.slice(1);
+        })(),
         logoUrl: settings?.logoUrl,
       });
       showPreview(result);
@@ -193,26 +215,33 @@ export default function Reports() {
             <CardTitle>Cotas Regional e Distrital</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Calculadas sobre o total de entradas do mês anterior ({prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}):{" "}
-              <span className="font-semibold">
-                R$ {(prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0).toFixed(2)}
-              </span>
-            </p>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between rounded-md border px-4 py-2">
-                <span>Cota Regional (11%)</span>
-                <span className="font-semibold">
-                  R$ {((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0) * 0.11).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-md border px-4 py-2">
-                <span>Cota Distrital (4%)</span>
-                <span className="font-semibold">
-                  R$ {((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount), 0) * 0.04).toFixed(2)}
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const prevTotal = Math.round((prevMonthEntries ?? []).reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+              return (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Calculadas sobre o total de entradas do mês anterior ({prevMonthRange.startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}):{" "}
+                    <span className="font-semibold">
+                      R$ {prevTotal.toFixed(2)}
+                    </span>
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between rounded-md border px-4 py-2">
+                      <span>Cota Regional (11%)</span>
+                      <span className="font-semibold">
+                        R$ {(Math.round(prevTotal * 11) / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border px-4 py-2">
+                      <span>Cota Distrital (4%)</span>
+                      <span className="font-semibold">
+                        R$ {(Math.round(prevTotal * 4) / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
 
