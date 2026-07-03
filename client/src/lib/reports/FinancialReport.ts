@@ -11,6 +11,7 @@ import {
   iconArrowUp,
   iconArrowDown,
   iconWallet,
+  tableRow,
   NAVY,
   RED,
   GRAY1,
@@ -47,6 +48,7 @@ export const buildFinancialReport = async (data: {
   cotaDistritalTotal: number;
   prevMonthRef: string;
   logoUrl?: string | null;
+  expensesDetail?: { date: string; category: string; description: string; amount: number }[];
 }) => {
   const JsPDF = await getJsPDF();
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -406,6 +408,97 @@ export const buildFinancialReport = async (data: {
   const today = new Date();
   const todayStr = today.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   doc.text(`Monte Alegre de Minas, ${todayStr}.`, PW - MR, Y, { align: "right" });
+
+  // ── PÁGINA 2: DESPESAS DETALHADAS ──
+  // Lista cada saída lançada no período (data, categoria, descrição e valor) para
+  // que a composição do total de saídas exibido acima seja auditável item a item.
+  if (data.expensesDetail && data.expensesDetail.length > 0) {
+    const PH = 297;
+    const FOOTER_H = 10;
+    const PHFOOTER = PH - FOOTER_H;
+    const CONTENT_BOTTOM = PHFOOTER - 4;
+    const MT = 16;
+
+    doc.addPage();
+    let dy = { y: MT };
+
+    const drawHeader = () => {
+      filledRect(doc, 0, 0, PW, 12, NAVY);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...WHITE);
+      doc.text("DESPESAS DETALHADAS — " + data.refDate.toUpperCase(), ML, 7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Página ${doc.getNumberOfPages()}`, PW - MR, 7.5, { align: "right" });
+      dy.y = MT;
+    };
+
+    let ensureSpace = (neededH: number, redraw?: () => void) => {
+      if (dy.y + neededH > CONTENT_BOTTOM) {
+        doc.addPage();
+        drawHeader();
+        if (redraw) redraw();
+      }
+    };
+
+    drawHeader();
+
+    const colDate = 20;
+    const colCat = 34;
+    const colVal = 30;
+    const colDesc = W - colDate - colCat - colVal;
+    const ROW_H = 6.5;
+
+    const drawColumnHeader = () => {
+      filledRect(doc, ML, dy.y, W, 7, [226, 232, 240]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...NAVY);
+      doc.text("DATA", ML + 2, dy.y + 4.8);
+      doc.text("CATEGORIA", ML + colDate + 2, dy.y + 4.8);
+      doc.text("DESCRIÇÃO", ML + colDate + colCat + 2, dy.y + 4.8);
+      doc.text("VALOR (R$)", PW - MR - 2, dy.y + 4.8, { align: "right" });
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.line(ML, dy.y + 7, PW - MR, dy.y + 7);
+      dy.y += 7;
+    };
+
+    drawColumnHeader();
+
+    data.expensesDetail.forEach((e, i) => {
+      ensureSpace(ROW_H, drawColumnHeader);
+      tableRow(doc, ML, dy.y, W, [
+        { text: e.date, width: colDate },
+        { text: e.category, width: colCat },
+        { text: e.description, width: colDesc },
+        { text: e.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), width: colVal, align: "right" },
+      ], i % 2 === 1, false, undefined, ROW_H);
+      dy.y += ROW_H;
+    });
+
+    ensureSpace(8);
+    filledRect(doc, ML, dy.y, W, 8, NAVY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text("TOTAL DE SAÍDAS DO PERÍODO", ML + 3, dy.y + 5.5);
+    doc.text(brl(data.totalExpenses), PW - MR - 2, dy.y + 5.5, { align: "right" });
+    dy.y += 8;
+
+    // Footer band on every page from the 2nd onward
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 2; p <= totalPages; p++) {
+      doc.setPage(p);
+      filledRect(doc, 0, PHFOOTER, PW, FOOTER_H, NAVY);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(220, 226, 235);
+      doc.text("Relatório Financeiro-Clerical — Detalhamento de Despesas", ML, PHFOOTER + 6.5);
+      doc.text(`Página ${p}/${totalPages}`, PW - MR, PHFOOTER + 6.5, { align: "right" });
+    }
+  }
 
   return { doc, filename: `Relatorio_Financeiro_Clerical_${data.refDate.replace(/[\s•/]+/g, "_")}.pdf` };
 };

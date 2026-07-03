@@ -112,6 +112,20 @@ export default function Reports() {
     }
   };
 
+  const expenseCategoryLabels: Record<string, string> = {
+    agua: "Água",
+    energia: "Energia",
+    internet: "Internet",
+    aluguel: "Aluguel",
+    material_limpeza: "Material de Limpeza",
+    evangelismo: "Evangelismo",
+    missoes: "Missões",
+    construcao: "Construção",
+    equipamentos: "Equipamentos",
+    manutencao: "Manutenção",
+    outras_despesas: "Outras Despesas",
+  };
+
   const generateFinancialReport = async () => {
     setIsGenerating(true);
     try {
@@ -119,6 +133,15 @@ export default function Reports() {
 
       const safeSum = (items: { amount: string }[]) =>
         Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
+      const expensesDetail = [...expenses]
+        .sort((a, b) => new Date(a.expenseDate).getTime() - new Date(b.expenseDate).getTime())
+        .map((e) => ({
+          date: new Date(e.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }),
+          category: expenseCategoryLabels[e.category] ?? e.category,
+          description: e.description || "-",
+          amount: Math.round(parseFloat(e.amount) * 100) / 100,
+        }));
 
       const totalEntries  = safeSum(entries);
       const totalExpenses = safeSum(expenses);
@@ -159,6 +182,7 @@ export default function Reports() {
           return ref.charAt(0).toUpperCase() + ref.slice(1);
         })(),
         logoUrl: settings?.logoUrl,
+        expensesDetail,
       });
       showPreview(result);
       toast.success("Relatório Financeiro-Clerical gerado com sucesso!");
