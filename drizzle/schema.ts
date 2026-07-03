@@ -86,6 +86,9 @@ export const churchSettings = pgTable("church_settings", {
   treasurerName: varchar("treasurerName", { length: 255 }).notNull(),
   defaultVerse: text("defaultVerse"),
   logoUrl: text("logoUrl"),
+  // Último mês (formato "YYYY-MM") em que o usuário já foi questionado sobre
+  // lançar as despesas recorrentes do mês — evita perguntar mais de uma vez.
+  lastRecurringExpensePromptMonth: varchar("lastRecurringExpensePromptMonth", { length: 7 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
 });
@@ -168,6 +171,24 @@ export const expenses = pgTable("expenses", {
 
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
+
+/**
+ * Modelos de despesas recorrentes (ex: água, energia, zeladoria) usados para
+ * pré-preencher o lançamento de saídas do mês, uma vez por mês.
+ */
+export const recurringExpenses = pgTable("recurring_expenses", {
+  id: serial("id").primaryKey(),
+  category: expenseCategoryEnum("category").notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("paymentMethod").notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type RecurringExpense = typeof recurringExpenses.$inferSelect;
+export type InsertRecurringExpense = typeof recurringExpenses.$inferInsert;
 
 /**
  * Recibos - registros de recibos gerados para contribuições

@@ -5,5 +5,6 @@ export * from "./db/settings";
 export * from "./db/members";
 export * from "./db/entries";
 export * from "./db/expenses";
+export * from "./db/recurringExpenses";
 export * from "./db/costCenters";
 export * from "./db/receipts";

@@ -15,6 +15,13 @@
       "when": 1781466038459,
       "tag": "0001_cuddly_thunderball",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783087639955,
+      "tag": "0002_groovy_microchip",
+      "breakpoints": true
     }
   ]
 }
