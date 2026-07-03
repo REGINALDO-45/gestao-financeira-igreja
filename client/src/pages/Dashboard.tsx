@@ -35,22 +35,7 @@ import {
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { monthRangeUTC } from "@/lib/dateRange";
 
-const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16"];
-const EXPENSE_COLORS = ["#ef4444", "#f97316", "#f59e0b", "#ec4899", "#8b5cf6", "#3b82f6", "#06b6d4"];
-
-const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
-  agua: "Água",
-  energia: "Energia",
-  internet: "Internet",
-  aluguel: "Aluguel",
-  material_limpeza: "Material de Limpeza",
-  evangelismo: "Evangelismo",
-  missoes: "Missões",
-  construcao: "Construção",
-  equipamentos: "Equipamentos",
-  manutencao: "Manutenção",
-  outras_despesas: "Outras Despesas",
-};
+const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
 const sumAmounts = (items: { amount: string }[]) =>
   Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
@@ -158,95 +143,6 @@ export default function Dashboard() {
       value: Math.round(value) / 100,
     }));
   }, [entries]);
-
-  const expenseCategoryData = useMemo(() => {
-    if (!expenses || !entries) return [];
-
-    const totalEntries = sumAmounts(entries) || 1; // Avoid division by zero
-    const categories: Record<string, number> = {};
-    let salaryAmount = 0;
-
-    expenses.forEach((exp) => {
-      const amt = parseFloat(exp.amount);
-      const desc = (exp.description || "").toLowerCase();
-      const sup = (exp.supplier || "").toLowerCase();
-
-      // Detect if it is salary/prebenda/pastor/zeladoria/zelador/salario/clero/clerical/cooperador
-      const isSalary =
-        desc.includes("salario") ||
-        desc.includes("salário") ||
-        desc.includes("prebenda") ||
-        desc.includes("zelador") ||
-        desc.includes("zeladoria") ||
-        desc.includes("pastor") ||
-        desc.includes("folha") ||
-        desc.includes("mão de obra") ||
-        desc.includes("mao de obra") ||
-        sup.includes("salario") ||
-        sup.includes("salário") ||
-        sup.includes("prebenda") ||
-        sup.includes("zelador");
-
-      if (isSalary) {
-        salaryAmount += amt * 100;
-      } else {
-        const catLabel = EXPENSE_CATEGORY_LABELS[exp.category] || exp.category;
-        categories[catLabel] = (categories[catLabel] || 0) + amt * 100;
-      }
-    });
-
-    const result = Object.entries(categories).map(([name, value]) => {
-      const val = Math.round(value) / 100;
-      return {
-        name,
-        value: val,
-        percentageOfEntries: (val / totalEntries) * 100,
-      };
-    });
-
-    if (salaryAmount > 0) {
-      const val = Math.round(salaryAmount) / 100;
-      result.push({
-        name: "Salários e Prebendas",
-        value: val,
-        percentageOfEntries: (val / totalEntries) * 100,
-      });
-    }
-
-    return result.sort((a, b) => b.value - a.value);
-  }, [expenses, entries]);
-
-  const salaryPercentOfEntries = useMemo(() => {
-    if (!expenses || !entries) return 0;
-    const totalEntries = sumAmounts(entries);
-    if (totalEntries === 0) return 0;
-
-    let salaryAmount = 0;
-    expenses.forEach((exp) => {
-      const desc = (exp.description || "").toLowerCase();
-      const sup = (exp.supplier || "").toLowerCase();
-      const isSalary =
-        desc.includes("salario") ||
-        desc.includes("salário") ||
-        desc.includes("prebenda") ||
-        desc.includes("zelador") ||
-        desc.includes("zeladoria") ||
-        desc.includes("pastor") ||
-        desc.includes("folha") ||
-        desc.includes("mão de obra") ||
-        desc.includes("mao de obra") ||
-        sup.includes("salario") ||
-        sup.includes("salário") ||
-        sup.includes("prebenda") ||
-        sup.includes("zelador");
-
-      if (isSalary) {
-        salaryAmount += parseFloat(exp.amount);
-      }
-    });
-
-    return (salaryAmount / totalEntries) * 100;
-  }, [expenses, entries]);
 
   const isLoading = entriesLoading || expensesLoading;
 
@@ -396,10 +292,10 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Gráficos de Evolução */}
-        <div className="w-full">
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico de Linha - Evolução Mensal */}
-          <Card className="border-border/60 shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle>Evolução Financeira Mensal</CardTitle>
             </CardHeader>
@@ -409,18 +305,18 @@ export default function Dashboard() {
                   <AreaChart data={monthlyData}>
                     <defs>
                       <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gradSaidas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value: any) => brl(Number(value))} />
+                    <Tooltip formatter={(value: any) => `R$ ${typeof value === 'number' ? value.toFixed(2) : value}`} />
                     <Legend />
                     <Area
                       type="monotone"
@@ -447,27 +343,25 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Gráficos de Pizza/Rosca */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gráfico de Rosca - Distribuição de Entradas por Categoria */}
+          {/* Gráfico de Rosca - Distribuição por Categoria */}
           <Card className="border-border/60 shadow-sm">
             <CardHeader>
-              <CardTitle>Distribuição de Entradas por Categoria</CardTitle>
+              <CardTitle>Distribuição por Categoria</CardTitle>
             </CardHeader>
             <CardContent>
               {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie
                       data={categoryData}
                       cx="50%"
-                      cy="45%"
-                      innerRadius={55}
-                      outerRadius={90}
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
+                      label={({ name, value }) => `${name}: ${brl(Number(value))}`}
                     >
                       {categoryData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -481,84 +375,10 @@ export default function Dashboard() {
                         fontSize: 13,
                       }}
                     />
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      formatter={(value) => (
-                        <span style={{ fontSize: 12, textTransform: "capitalize" }}>
-                          {value.toLowerCase()}
-                        </span>
-                      )}
-                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  Nenhum dado disponível
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Gráfico de Rosca - Distribuição de Saídas por Categoria com % em relação às Entradas */}
-          <Card className="border-border/60 shadow-sm flex flex-col justify-between">
-            <CardHeader>
-              <CardTitle>Distribuição de Saídas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col justify-between space-y-4">
-              {expenseCategoryData.length > 0 ? (
-                <>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie
-                        data={expenseCategoryData}
-                        cx="50%"
-                        cy="45%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {expenseCategoryData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: any, name: any, props: any) => {
-                          const valStr = brl(Number(value));
-                          const pct = props.payload.percentageOfEntries;
-                          return [`${valStr} (${pct.toFixed(1)}% das entradas)`, name];
-                        }}
-                        contentStyle={{
-                          borderRadius: 12,
-                          border: "1px solid hsl(var(--border))",
-                          fontSize: 13,
-                        }}
-                      />
-                      <Legend
-                        iconType="circle"
-                        iconSize={8}
-                        formatter={(value) => (
-                          <span style={{ fontSize: 12 }} className="text-muted-foreground">
-                            {value}
-                          </span>
-                        )}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  
-                  <div className="pt-2 border-t text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      Gasto com Salários/Prebendas representa{" "}
-                      <span className="text-red-600 dark:text-red-400 font-bold">
-                        {salaryPercentOfEntries.toFixed(1)}%
-                      </span>{" "}
-                      das entradas
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                   Nenhum dado disponível
                 </div>
               )}
