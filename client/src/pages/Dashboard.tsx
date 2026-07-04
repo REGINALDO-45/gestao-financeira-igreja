@@ -314,6 +314,10 @@ export default function Dashboard() {
         },
   ];
 
+  // No mobile o card de saldo em gradiente já cobre Entradas/Saídas/Saldo,
+  // então escondemos esses três cards e mantemos apenas o de Meta/Lançamentos.
+  const visibleKpis = isMobile ? kpis.slice(3) : kpis;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -352,7 +356,7 @@ export default function Dashboard() {
 
         {/* Cards de Saldo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpis.map((kpi) => {
+          {visibleKpis.map((kpi) => {
             const Icon = kpi.icon;
             const HintIcon = kpi.hintIcon;
             return (
