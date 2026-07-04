@@ -11,8 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
@@ -32,9 +32,14 @@ import {
   ListChecks,
   ArrowUpRight,
   ArrowDownRight,
+  Target,
 } from "lucide-react";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { monthRangeUTC } from "@/lib/dateRange";
+import { CategoryLegend } from "@/components/dashboard/CategoryLegend";
+import { ExpensesByCategoryBars } from "@/components/dashboard/ExpensesByCategoryBars";
+import { RecentMovements } from "@/components/dashboard/RecentMovements";
+import { calculateExpenseSharePct, buildRecentMovements, getGoalCardData } from "@/lib/dashboardMath";
 
 const COLORS = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"];
 const EXPENSE_COLORS = ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f43f5e", "#0ea5e9", "#a855f7", "#facc15"];
@@ -206,6 +211,16 @@ export default function Dashboard() {
     }));
   }, [expenses]);
 
+  const expenseShare = useMemo(
+    () => calculateExpenseSharePct(expenseCategoryData, stats?.totalEntries ?? 0),
+    [expenseCategoryData, stats?.totalEntries]
+  );
+
+  const recentMovements = useMemo(
+    () => buildRecentMovements(entries ?? [], expenses ?? [], 5),
+    [entries, expenses]
+  );
+
   const isLoading = entriesLoading || expensesLoading;
 
   if (isLoading) {
@@ -224,6 +239,13 @@ export default function Dashboard() {
   const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
   const entriesGoalPct = monthlyEntriesGoal > 0 ? ((stats?.totalEntries || 0) / monthlyEntriesGoal) * 100 : null;
   const expensesGoalPct = monthlyExpensesGoal > 0 ? ((stats?.totalExpenses || 0) / monthlyExpensesGoal) * 100 : null;
+
+  const goalCardData = getGoalCardData(
+    monthlyEntriesGoal,
+    stats?.totalEntries ?? 0,
+    entries?.length ?? 0,
+    expenses?.length ?? 0
+  );
 
   const kpis = [
     {
@@ -265,16 +287,28 @@ export default function Dashboard() {
         ? "text-blue-600 dark:text-blue-400"
         : "text-red-600 dark:text-red-400",
     },
-    {
-      label: "Lançamentos",
-      value: String((entries?.length || 0) + (expenses?.length || 0)),
-      hint: `${entries?.length || 0} entradas · ${expenses?.length || 0} saídas`,
-      icon: ListChecks,
-      iconClass: "text-amber-600 dark:text-amber-400",
-      badgeClass: "bg-amber-500/10",
-      accent: "from-amber-500/15",
-      valueClass: "text-foreground",
-    },
+    goalCardData.kind === "goal"
+      ? {
+          label: goalCardData.label,
+          value: brl(goalCardData.currentValue),
+          hint: `${goalCardData.pct.toFixed(0)}% de ${brl(goalCardData.goalValue)}`,
+          icon: Target,
+          iconClass: "text-blue-600 dark:text-blue-400",
+          badgeClass: "bg-blue-500/10",
+          accent: "from-blue-500/15",
+          valueClass: "text-foreground",
+          progressPct: Math.min(goalCardData.pct, 100),
+        }
+      : {
+          label: "Lançamentos",
+          value: String(goalCardData.entriesCount + goalCardData.expensesCount),
+          hint: `${goalCardData.entriesCount} entradas · ${goalCardData.expensesCount} saídas`,
+          icon: ListChecks,
+          iconClass: "text-amber-600 dark:text-amber-400",
+          badgeClass: "bg-amber-500/10",
+          accent: "from-amber-500/15",
+          valueClass: "text-foreground",
+        },
   ];
 
   return (
@@ -346,6 +380,14 @@ export default function Dashboard() {
                       {kpi.goalPct.toFixed(0)}% da meta mensal
                     </Badge>
                   )}
+                  {"progressPct" in kpi && kpi.progressPct !== undefined && (
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-blue-500"
+                        style={{ width: `${kpi.progressPct}%` }}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -384,20 +426,10 @@ export default function Dashboard() {
             <CardContent>
               {(chartView === "mensal" ? monthlyData : weeklyData).length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart
+                  <BarChart
                     data={chartView === "mensal" ? monthlyData : weeklyData}
                     margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                   >
-                    <defs>
-                      <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradSaidas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis
                       dataKey={chartView === "mensal" ? "month" : "week"}
@@ -421,23 +453,9 @@ export default function Dashboard() {
                       }}
                     />
                     <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="entradas"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
-                      fill="url(#gradEntradas)"
-                      name="Entradas"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="saidas"
-                      stroke="#ef4444"
-                      strokeWidth={2.5}
-                      fill="url(#gradSaidas)"
-                      name="Saídas"
-                    />
-                  </AreaChart>
+                    <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="saidas" name="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-muted-foreground">
@@ -454,37 +472,51 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${brl(Number(value))}`}
-                    >
-                      {(() => {
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <ResponsiveContainer width="100%" height={220} className="sm:max-w-[220px]">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {(() => {
+                          let otherIndex = 0;
+                          return categoryData.map((entry, index) => {
+                            const color = getCategoryColor(entry.name, entry.name === "DIZIMO" ? 0 : otherIndex);
+                            if (entry.name !== "DIZIMO") otherIndex++;
+                            return <Cell key={`cell-${index}`} fill={color} />;
+                          });
+                        })()}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any) => brl(Number(value))}
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "1px solid hsl(var(--border))",
+                          fontSize: 13,
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="w-full sm:flex-1">
+                    <CategoryLegend
+                      items={(() => {
                         let otherIndex = 0;
-                        return categoryData.map((entry, index) => {
+                        return categoryData.map((entry) => {
                           const color = getCategoryColor(entry.name, entry.name === "DIZIMO" ? 0 : otherIndex);
                           if (entry.name !== "DIZIMO") otherIndex++;
-                          return <Cell key={`cell-${index}`} fill={color} />;
+                          return { name: entry.name, value: entry.value, color };
                         });
                       })()}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any) => brl(Number(value))}
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid hsl(var(--border))",
-                        fontSize: 13,
-                      }}
+                      formatValue={brl}
                     />
-                  </PieChart>
-                </ResponsiveContainer>
+                  </div>
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                   Nenhum dado disponível
@@ -534,6 +566,27 @@ export default function Dashboard() {
                   Nenhum dado disponível
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader>
+              <CardTitle>Saídas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ExpensesByCategoryBars
+                items={expenseShare.items}
+                totalExpenses={expenseShare.totalExpenses}
+                totalPct={expenseShare.totalPct}
+                colors={EXPENSE_COLORS}
+                formatValue={brl}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="pt-6">
+              <RecentMovements movements={recentMovements} formatValue={brl} />
             </CardContent>
           </Card>
         </div>
