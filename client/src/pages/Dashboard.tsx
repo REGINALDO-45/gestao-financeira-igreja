@@ -537,53 +537,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Gráfico de Pizza - Distribuição de Saídas por Categoria */}
-          <Card className="border-border/60 shadow-sm">
-            <CardHeader>
-              <CardTitle>Distribuição de Saídas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {expenseCategoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
-                  <PieChart>
-                    <Pie
-                      data={expenseCategoryData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={isMobile ? 70 : 100}
-                      dataKey="value"
-                      label={
-                        isMobile
-                          ? undefined
-                          : ({ name, value, percent }) =>
-                              `${name}: ${brl(Number(value))} (${(Number(percent) * 100).toFixed(0)}%)`
-                      }
-                    >
-                      {expenseCategoryData.map((_, index) => (
-                        <Cell key={`expense-cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any, name: any, props: any) =>
-                        [`${brl(Number(value))} (${(Number(props?.payload?.percent ?? 0) * 100).toFixed(0)}%)`, name]
-                      }
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid hsl(var(--border))",
-                        fontSize: 13,
-                      }}
-                    />
-                    {!isMobile && <Legend />}
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className={`flex items-center justify-center text-muted-foreground ${isMobile ? "h-[220px]" : "h-[300px]"}`}>
-                  Nenhum dado disponível
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>Saídas por Categoria</CardTitle>
