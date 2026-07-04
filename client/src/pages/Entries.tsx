@@ -104,6 +104,7 @@ export default function Entries() {
     const csv = buildCsv(filteredEntries, [
       { header: "Data", value: (e) => new Date(e.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) },
       { header: "Categoria", value: (e) => e.category.replace(/_/g, " ") },
+      { header: "Descrição", value: (e) => e.description ?? "" },
       { header: "Membro", value: (e) => (e.memberId ? members?.find((m) => m.id === e.memberId)?.name ?? "" : "") },
       { header: "Valor", value: (e) => parseFloat(e.amount).toFixed(2) },
       { header: "Forma de Pagamento", value: (e) => e.paymentMethod },

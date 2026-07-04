@@ -125,6 +125,7 @@ export default function Expenses() {
     const csv = buildCsv(filteredExpenses, [
       { header: "Data", value: (e) => new Date(e.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) },
       { header: "Categoria", value: (e) => e.category.replace(/_/g, " ") },
+      { header: "Descrição", value: (e) => e.description ?? "" },
       { header: "Fornecedor", value: (e) => e.supplier ?? "" },
       { header: "Valor", value: (e) => parseFloat(e.amount).toFixed(2) },
       { header: "Status", value: (e) => e.paymentStatus },

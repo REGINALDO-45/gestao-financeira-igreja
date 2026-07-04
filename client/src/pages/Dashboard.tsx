@@ -437,7 +437,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {(chartView === "mensal" ? monthlyData : weeklyData).length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                   <BarChart
                     data={chartView === "mensal" ? monthlyData : weeklyData}
                     margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
@@ -447,13 +447,13 @@ export default function Dashboard() {
                       dataKey={chartView === "mensal" ? "month" : "week"}
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: isMobile ? 10 : 12 }}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fontSize: 12 }}
-                      width={56}
+                      tick={{ fontSize: isMobile ? 10 : 12 }}
+                      width={isMobile ? 40 : 56}
                       tickFormatter={(v) => brlCompact(Number(v))}
                     />
                     <Tooltip
@@ -464,13 +464,13 @@ export default function Dashboard() {
                         fontSize: 13,
                       }}
                     />
-                    <Legend />
+                    {!isMobile && <Legend />}
                     <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="saidas" name="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <div className={`flex items-center justify-center text-muted-foreground ${isMobile ? "h-[220px]" : "h-[300px]"}`}>
                   Nenhum dado disponível
                 </div>
               )}
@@ -544,16 +544,19 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {expenseCategoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                   <PieChart>
                     <Pie
                       data={expenseCategoryData}
                       cx="50%"
                       cy="50%"
-                      outerRadius={100}
+                      outerRadius={isMobile ? 70 : 100}
                       dataKey="value"
-                      label={({ name, value, percent }) =>
-                        `${name}: ${brl(Number(value))} (${(Number(percent) * 100).toFixed(0)}%)`
+                      label={
+                        isMobile
+                          ? undefined
+                          : ({ name, value, percent }) =>
+                              `${name}: ${brl(Number(value))} (${(Number(percent) * 100).toFixed(0)}%)`
                       }
                     >
                       {expenseCategoryData.map((_, index) => (
@@ -570,11 +573,11 @@ export default function Dashboard() {
                         fontSize: 13,
                       }}
                     />
-                    <Legend />
+                    {!isMobile && <Legend />}
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <div className={`flex items-center justify-center text-muted-foreground ${isMobile ? "h-[220px]" : "h-[300px]"}`}>
                   Nenhum dado disponível
                 </div>
               )}
