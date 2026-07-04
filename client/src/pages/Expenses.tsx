@@ -28,15 +28,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { useIsMobile } from "@/hooks/useMobile";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
+import { RecurringExpensesDialog } from "@/components/forms/RecurringExpensesDialog";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Expense = RouterOutputs["expenses"]["list"][number];
 
 export default function Expenses() {
   const { user } = useAuthGuard();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Filtros
   const [filterCategory, setFilterCategory] = useState("all");
@@ -86,6 +94,19 @@ export default function Expenses() {
       return true;
     });
   }, [expenses, filterCategory, filterStatus, filterCostCenter, filterDateFrom, filterDateTo]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pago":
+        return "bg-green-100 text-green-800";
+      case "pendente":
+        return "bg-yellow-100 text-yellow-800";
+      case "cancelado":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   const clearFilters = () => {
     setFilterCategory("all");
@@ -255,13 +276,14 @@ export default function Expenses() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Centro de Custo</TableHead>
                       <TableHead>Status</TableHead>
+                      {isTreasurer(user?.role) && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredExpenses.map((expense) => (
                       <TableRow key={expense.id}>
                         <TableCell>
-                          {new Date(expense.expenseDate).toLocaleDateString("pt-BR")}
+                          {new Date(expense.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
                           {expense.category.replace(/_/g, " ")}
@@ -278,6 +300,13 @@ export default function Expenses() {
                             {expense.paymentStatus === "cancelado" && "Cancelado"}
                           </Badge>
                         </TableCell>
+                        {isTreasurer(user?.role) && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingExpense(expense)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

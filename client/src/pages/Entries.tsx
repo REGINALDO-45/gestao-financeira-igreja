@@ -28,15 +28,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { useIsMobile } from "@/hooks/useMobile";
 import { EntryForm } from "@/components/forms/EntryForm";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/routers";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Entry = RouterOutputs["entries"]["list"][number];
 
 export default function Entries() {
   const { user } = useAuthGuard();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const { data: entries, isLoading } = trpc.entries.list.useQuery();
   const { data: members } = trpc.members.list.useQuery();
   const { data: costCenters } = trpc.costCenters.list.useQuery();
@@ -248,13 +255,15 @@ export default function Entries() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Forma de Pagamento</TableHead>
                       <TableHead>Culto/Domingo</TableHead>
+                      <TableHead>Ministério</TableHead>
+                      {isTreasurer(user?.role) && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          {new Date(entry.entryDate).toLocaleDateString("pt-BR")}
+                          {new Date(entry.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
                           {entry.category.replace(/_/g, " ")}
@@ -265,6 +274,16 @@ export default function Entries() {
                         </TableCell>
                         <TableCell className="capitalize">{entry.paymentMethod}</TableCell>
                         <TableCell>{entry.cultoSunday || "-"}</TableCell>
+                        <TableCell>
+                          {entry.costCenterId ? costCenterNameById.get(entry.costCenterId) ?? "-" : "-"}
+                        </TableCell>
+                        {isTreasurer(user?.role) && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingEntry(entry)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
