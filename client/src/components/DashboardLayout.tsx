@@ -40,8 +40,8 @@ import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 import { BottomNav } from "./BottomNav";
 import { FullScreenFormSheet } from "./FullScreenFormSheet";
-import { EntryForm } from "./forms/EntryForm";
-import { ExpenseForm } from "./forms/ExpenseForm";
+import { MobileEntryForm } from "./forms/MobileEntryForm";
+import { MobileExpenseForm } from "./forms/MobileExpenseForm";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -355,10 +355,10 @@ function DashboardLayoutContent({
             onSelectExpense={() => setMobileExpenseOpen(true)}
           />
           <FullScreenFormSheet open={mobileEntryOpen} onOpenChange={setMobileEntryOpen} title="Nova Entrada">
-            <EntryForm onSuccess={() => setMobileEntryOpen(false)} />
+            <MobileEntryForm onSuccess={() => setMobileEntryOpen(false)} />
           </FullScreenFormSheet>
           <FullScreenFormSheet open={mobileExpenseOpen} onOpenChange={setMobileExpenseOpen} title="Nova Saída">
-            <ExpenseForm onSuccess={() => setMobileExpenseOpen(false)} />
+            <MobileExpenseForm onSuccess={() => setMobileExpenseOpen(false)} />
           </FullScreenFormSheet>
         </>
       )}
