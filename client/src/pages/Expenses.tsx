@@ -28,12 +28,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X, Pencil } from "lucide-react";
+import { Loader2, Plus, X, Pencil, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { useIsMobile } from "@/hooks/useMobile";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { RecurringExpensesDialog } from "@/components/forms/RecurringExpensesDialog";
+import { CategoryIcon } from "@/components/transactions/CategoryIcon";
+import { matchesSearch } from "@/lib/searchTransactions";
+import { buildCsv, downloadCsv } from "@/lib/exportCsv";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 
@@ -52,6 +55,7 @@ export default function Expenses() {
   const [filterCostCenter, setFilterCostCenter] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: expenses, isLoading } = trpc.expenses.list.useQuery();
   const { data: costCenters } = trpc.costCenters.list.useQuery();
@@ -74,6 +78,7 @@ export default function Expenses() {
     if (!expenses) return [];
 
     return expenses.filter((expense) => {
+      if (!matchesSearch(searchQuery, [expense.description, expense.supplier, expense.category])) return false;
       if (filterCategory && filterCategory !== "all" && expense.category !== filterCategory) return false;
       if (filterStatus && filterStatus !== "all" && expense.paymentStatus !== filterStatus) return false;
       if (filterCostCenter && filterCostCenter !== "all" && expense.costCenterId?.toString() !== filterCostCenter) return false;
@@ -93,7 +98,7 @@ export default function Expenses() {
 
       return true;
     });
-  }, [expenses, filterCategory, filterStatus, filterCostCenter, filterDateFrom, filterDateTo]);
+  }, [expenses, filterCategory, filterStatus, filterCostCenter, filterDateFrom, filterDateTo, searchQuery]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -114,6 +119,17 @@ export default function Expenses() {
     setFilterCostCenter("all");
     setFilterDateFrom("");
     setFilterDateTo("");
+  };
+
+  const handleExport = () => {
+    const csv = buildCsv(filteredExpenses, [
+      { header: "Data", value: (e) => new Date(e.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) },
+      { header: "Categoria", value: (e) => e.category.replace(/_/g, " ") },
+      { header: "Fornecedor", value: (e) => e.supplier ?? "" },
+      { header: "Valor", value: (e) => parseFloat(e.amount).toFixed(2) },
+      { header: "Status", value: (e) => e.paymentStatus },
+    ]);
+    downloadCsv(`saidas-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   };
 
   const hasActiveFilters =
@@ -137,27 +153,42 @@ export default function Expenses() {
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Saídas</h1>
             <p className="text-sm text-muted-foreground">Despesas e saídas financeiras</p>
           </div>
-          {isTreasurer(user?.role) && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size={isMobile ? "sm" : "default"} id="new-expense-btn">
-                  <Plus className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Nova Despesa</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Registrar Nova Despesa</DialogTitle>
-                </DialogHeader>
-                <ExpenseForm onSuccess={() => setOpen(false)} />
-              </DialogContent>
-            </Dialog>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por descrição ou fornecedor…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-9 w-full sm:w-56"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredExpenses.length === 0}>
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+            {isTreasurer(user?.role) && (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button size={isMobile ? "sm" : "default"} id="new-expense-btn">
+                    <Plus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Nova Despesa</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Registrar Nova Despesa</DialogTitle>
+                  </DialogHeader>
+                  <ExpenseForm onSuccess={() => setOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         {/* Filtros */}
@@ -246,10 +277,22 @@ export default function Expenses() {
             </div>
 
             {hasActiveFilters && (
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {filteredExpenses.length} resultado(s)
-                </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {filterCategory !== "all" && (
+                  <Badge variant="secondary" className="rounded-full capitalize">{filterCategory.replace(/_/g, " ")}</Badge>
+                )}
+                {filterStatus !== "all" && (
+                  <Badge variant="secondary" className="rounded-full capitalize">{filterStatus}</Badge>
+                )}
+                {filterCostCenter !== "all" && (
+                  <Badge variant="secondary" className="rounded-full">
+                    {costCenters?.find((cc) => cc.id.toString() === filterCostCenter)?.name ?? "Centro de custo"}
+                  </Badge>
+                )}
+                {(filterDateFrom || filterDateTo) && (
+                  <Badge variant="secondary" className="rounded-full">Período filtrado</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">{filteredExpenses.length} resultado(s)</span>
                 <Button variant="outline" size="sm" onClick={clearFilters} className="gap-2 text-xs sm:text-sm">
                   <X className="w-3 h-3 sm:w-4 sm:h-4" />
                   Limpar
@@ -286,11 +329,14 @@ export default function Expenses() {
                           {new Date(expense.expenseDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
-                          {expense.category.replace(/_/g, " ")}
+                          <span className="flex items-center gap-2">
+                            <CategoryIcon category={expense.category} type="saida" />
+                            {expense.category.replace(/_/g, " ")}
+                          </span>
                         </TableCell>
                         <TableCell>{expense.supplier || "-"}</TableCell>
-                        <TableCell className="font-semibold">
-                          R$ {parseFloat(expense.amount).toFixed(2)}
+                        <TableCell className="font-semibold text-red-600 dark:text-red-400">
+                          −R$ {parseFloat(expense.amount).toFixed(2)}
                         </TableCell>
                         <TableCell>{expense.costCenterId ? "CC ID: " + expense.costCenterId : "-"}</TableCell>
                         <TableCell>
