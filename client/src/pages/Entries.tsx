@@ -28,11 +28,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, X, Pencil } from "lucide-react";
+import { Loader2, Plus, X, Pencil, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { useIsMobile } from "@/hooks/useMobile";
 import { EntryForm } from "@/components/forms/EntryForm";
+import { CategoryIcon } from "@/components/transactions/CategoryIcon";
+import { matchesSearch } from "@/lib/searchTransactions";
+import { buildCsv, downloadCsv } from "@/lib/exportCsv";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 
@@ -59,11 +62,15 @@ export default function Entries() {
   const [filterMemberId, setFilterMemberId] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
 
     return entries.filter((entry) => {
+      const memberName = entry.memberId ? members?.find((m) => m.id === entry.memberId)?.name : undefined;
+      if (!matchesSearch(searchQuery, [entry.description, memberName, entry.category])) return false;
+
       if (filterCategory && filterCategory !== "all" && entry.category !== filterCategory) return false;
       if (filterPaymentMethod && filterPaymentMethod !== "all" && entry.paymentMethod !== filterPaymentMethod) return false;
       if (filterMemberId && filterMemberId !== "all" && entry.memberId?.toString() !== filterMemberId) return false;
@@ -83,7 +90,7 @@ export default function Entries() {
 
       return true;
     });
-  }, [entries, filterCategory, filterPaymentMethod, filterMemberId, filterDateFrom, filterDateTo]);
+  }, [entries, members, filterCategory, filterPaymentMethod, filterMemberId, filterDateFrom, filterDateTo, searchQuery]);
 
   const clearFilters = () => {
     setFilterCategory("all");
@@ -91,6 +98,17 @@ export default function Entries() {
     setFilterMemberId("all");
     setFilterDateFrom("");
     setFilterDateTo("");
+  };
+
+  const handleExport = () => {
+    const csv = buildCsv(filteredEntries, [
+      { header: "Data", value: (e) => new Date(e.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) },
+      { header: "Categoria", value: (e) => e.category.replace(/_/g, " ") },
+      { header: "Membro", value: (e) => (e.memberId ? members?.find((m) => m.id === e.memberId)?.name ?? "" : "") },
+      { header: "Valor", value: (e) => parseFloat(e.amount).toFixed(2) },
+      { header: "Forma de Pagamento", value: (e) => e.paymentMethod },
+    ]);
+    downloadCsv(`entradas-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   };
 
   const hasActiveFilters =
@@ -114,27 +132,42 @@ export default function Entries() {
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Entradas</h1>
             <p className="text-sm text-muted-foreground">Dízimos, ofertas e outras receitas</p>
           </div>
-          {isTreasurer(user?.role) && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size={isMobile ? "sm" : "default"} id="new-entry-btn">
-                  <Plus className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Nova Entrada</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Registrar Nova Entrada</DialogTitle>
-                </DialogHeader>
-                <EntryForm onSuccess={() => setOpen(false)} />
-              </DialogContent>
-            </Dialog>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por descrição ou membro…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-9 w-full sm:w-56"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredEntries.length === 0}>
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+            {isTreasurer(user?.role) && (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button size={isMobile ? "sm" : "default"} id="new-entry-btn">
+                    <Plus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Nova Entrada</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Registrar Nova Entrada</DialogTitle>
+                  </DialogHeader>
+                  <EntryForm onSuccess={() => setOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         {/* Filtros */}
@@ -225,10 +258,22 @@ export default function Entries() {
             </div>
 
             {hasActiveFilters && (
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {filteredEntries.length} resultado(s)
-                </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {filterCategory !== "all" && (
+                  <Badge variant="secondary" className="rounded-full capitalize">{filterCategory.replace(/_/g, " ")}</Badge>
+                )}
+                {filterPaymentMethod !== "all" && (
+                  <Badge variant="secondary" className="rounded-full capitalize">{filterPaymentMethod}</Badge>
+                )}
+                {filterMemberId !== "all" && filterMemberId !== "" && (
+                  <Badge variant="secondary" className="rounded-full">
+                    {members?.find((m) => m.id.toString() === filterMemberId)?.name ?? "Membro"}
+                  </Badge>
+                )}
+                {(filterDateFrom || filterDateTo) && (
+                  <Badge variant="secondary" className="rounded-full">Período filtrado</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">{filteredEntries.length} resultado(s)</span>
                 <Button variant="outline" size="sm" onClick={clearFilters} className="gap-2 text-xs sm:text-sm">
                   <X className="w-3 h-3 sm:w-4 sm:h-4" />
                   Limpar
@@ -266,11 +311,14 @@ export default function Entries() {
                           {new Date(entry.entryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                         </TableCell>
                         <TableCell className="capitalize">
-                          {entry.category.replace(/_/g, " ")}
+                          <span className="flex items-center gap-2">
+                            <CategoryIcon category={entry.category} type="entrada" />
+                            {entry.category.replace(/_/g, " ")}
+                          </span>
                         </TableCell>
                         <TableCell>{entry.memberId ? "Membro ID: " + entry.memberId : "-"}</TableCell>
-                        <TableCell className="font-semibold">
-                          R$ {parseFloat(entry.amount).toFixed(2)}
+                        <TableCell className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          +R$ {parseFloat(entry.amount).toFixed(2)}
                         </TableCell>
                         <TableCell className="capitalize">{entry.paymentMethod}</TableCell>
                         <TableCell>{entry.cultoSunday || "-"}</TableCell>
