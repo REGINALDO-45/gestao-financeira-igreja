@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -83,6 +84,7 @@ const monthOptions = buildMonthOptions();
 export default function Dashboard() {
   const { user } = useAuthGuard();
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
+  const [chartView, setChartView] = useState<"mensal" | "semanal">("mensal");
 
   const dateRange = useMemo(() => {
     const [y, m] = selectedMonth.split("-").map(Number);
@@ -146,6 +148,31 @@ export default function Dashboard() {
         saidas: Math.round(saidas * 100) / 100,
       }));
   }, [allEntries, allExpenses]);
+
+  const weeklyData = useMemo(() => {
+    if (!entries || !expenses) return [];
+
+    const weeks: Record<number, { entradas: number; saidas: number }> = {};
+
+    const addWeek = (dateVal: string | Date, field: "entradas" | "saidas", amount: string) => {
+      const date = new Date(dateVal);
+      const day = date.getUTCDate();
+      const weekIndex = Math.ceil(day / 7);
+      if (!weeks[weekIndex]) weeks[weekIndex] = { entradas: 0, saidas: 0 };
+      weeks[weekIndex][field] += parseFloat(amount);
+    };
+
+    entries.forEach((e) => addWeek(e.entryDate, "entradas", e.amount));
+    expenses.forEach((e) => addWeek(e.expenseDate, "saidas", e.amount));
+
+    return Object.entries(weeks)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([week, v]) => ({
+        week: `Semana ${week}`,
+        entradas: Math.round(v.entradas * 100) / 100,
+        saidas: Math.round(v.saidas * 100) / 100,
+      }));
+  }, [entries, expenses]);
 
   const categoryData = useMemo(() => {
     if (!entries) return [];
@@ -329,13 +356,38 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico de Área - Evolução Mensal */}
           <Card className="border-border/60 shadow-sm">
-            <CardHeader>
-              <CardTitle>Evolução Financeira Mensal</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+              <CardTitle>
+                {chartView === "mensal" ? "Evolução Financeira Mensal" : "Evolução Financeira Semanal"}
+              </CardTitle>
+              <div className="flex items-center gap-1 rounded-md border p-0.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chartView === "mensal" ? "default" : "ghost"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setChartView("mensal")}
+                >
+                  Mensal
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chartView === "semanal" ? "default" : "ghost"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setChartView("semanal")}
+                >
+                  Semanal
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {monthlyData.length > 0 ? (
+              {(chartView === "mensal" ? monthlyData : weeklyData).length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={monthlyData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <AreaChart
+                    data={chartView === "mensal" ? monthlyData : weeklyData}
+                    margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  >
                     <defs>
                       <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
@@ -348,7 +400,7 @@ export default function Dashboard() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis
-                      dataKey="month"
+                      dataKey={chartView === "mensal" ? "month" : "week"}
                       tickLine={false}
                       axisLine={false}
                       tick={{ fontSize: 12 }}
