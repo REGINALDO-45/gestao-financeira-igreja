@@ -39,7 +39,9 @@ import { monthRangeUTC } from "@/lib/dateRange";
 import { CategoryLegend } from "@/components/dashboard/CategoryLegend";
 import { ExpensesByCategoryBars } from "@/components/dashboard/ExpensesByCategoryBars";
 import { RecentMovements } from "@/components/dashboard/RecentMovements";
+import { MobileBalanceCard } from "@/components/dashboard/MobileBalanceCard";
 import { calculateExpenseSharePct, buildRecentMovements, getGoalCardData } from "@/lib/dashboardMath";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const COLORS = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"];
 const EXPENSE_COLORS = ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f43f5e", "#0ea5e9", "#a855f7", "#facc15"];
@@ -88,6 +90,7 @@ const monthOptions = buildMonthOptions();
 
 export default function Dashboard() {
   const { user } = useAuthGuard();
+  const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
   const [chartView, setChartView] = useState<"mensal" | "semanal">("mensal");
 
@@ -337,6 +340,15 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
         </div>
+
+        {isMobile && (
+          <MobileBalanceCard
+            balance={stats?.balance || 0}
+            totalEntries={stats?.totalEntries || 0}
+            totalExpenses={stats?.totalExpenses || 0}
+            formatValue={brl}
+          />
+        )}
 
         {/* Cards de Saldo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
