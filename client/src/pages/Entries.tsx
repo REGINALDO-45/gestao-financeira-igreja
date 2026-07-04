@@ -55,6 +55,11 @@ export default function Entries() {
     costCenters?.forEach((cc) => map.set(cc.id, cc.name));
     return map;
   }, [costCenters]);
+  const memberNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    members?.forEach((m) => map.set(m.id, m.name));
+    return map;
+  }, [members]);
 
   // Filtros
   const [filterCategory, setFilterCategory] = useState("");
@@ -317,7 +322,7 @@ export default function Entries() {
                             {entry.category.replace(/_/g, " ")}
                           </span>
                         </TableCell>
-                        <TableCell>{entry.memberId ? "Membro ID: " + entry.memberId : "-"}</TableCell>
+                        <TableCell>{entry.memberId ? memberNameById.get(entry.memberId) ?? "-" : "-"}</TableCell>
                         <TableCell className="font-semibold text-emerald-600 dark:text-emerald-400">
                           +R$ {parseFloat(entry.amount).toFixed(2)}
                         </TableCell>
