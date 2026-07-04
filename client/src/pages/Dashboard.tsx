@@ -270,7 +270,7 @@ export default function Dashboard() {
                       <Icon className={`h-5 w-5 ${kpi.iconClass}`} />
                     </span>
                   </div>
-                  <div className={`mt-3 text-2xl font-bold tracking-tight ${kpi.valueClass}`}>
+                  <div className={`mt-3 text-3xl font-bold tracking-tight ${kpi.valueClass}`}>
                     {kpi.value}
                   </div>
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
