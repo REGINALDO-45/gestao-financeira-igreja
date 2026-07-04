@@ -56,6 +56,7 @@ export default function Reports() {
   }), [startDate, endDate]);
 
   const { data: settings } = trpc.churchSettings.get.useQuery();
+  const { data: members } = trpc.members.list.useQuery();
   const { data: entries } = trpc.entries.listByDateRange.useQuery(dateRange);
   const { data: expenses } = trpc.expenses.listByDateRange.useQuery(dateRange);
   const { data: costCenterTotals } = trpc.entries.summaryByCostCenter.useQuery(dateRange);
@@ -84,13 +85,14 @@ export default function Reports() {
     setIsGenerating(true);
     try {
       if (!entries) throw new Error("Nenhum dado encontrado para o período selecionado");
+      const memberNameById = new Map(members?.map((m) => [m.id, m.name]) ?? []);
       // Vários lançamentos podem ter o mesmo nome (ex: lançamentos por membro sem
       // descrição, ou totais semanais consolidados) — agrupamos por nome e somamos
       // para evitar dezenas de linhas repetidas no PDF.
       const groupByName = (list: typeof entries, fallback: string) => {
         const totals = new Map<string, number>();
         list.forEach(e => {
-          const name = e.description || fallback;
+          const name = (e.memberId && memberNameById.get(e.memberId)) || e.description || fallback;
           const amount = Math.round(parseFloat(e.amount) * 100) / 100;
           totals.set(name, Math.round(((totals.get(name) ?? 0) + amount) * 100) / 100);
         });
