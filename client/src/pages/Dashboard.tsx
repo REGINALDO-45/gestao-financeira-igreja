@@ -35,7 +35,11 @@ import {
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { monthRangeUTC } from "@/lib/dateRange";
 
-const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+const COLORS = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"];
+const DIZIMO_COLOR = "#10b981";
+
+const getCategoryColor = (name: string, otherIndex: number) =>
+  name === "DIZIMO" ? DIZIMO_COLOR : COLORS[otherIndex % COLORS.length];
 
 const sumAmounts = (items: { amount: string }[]) =>
   Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
@@ -379,9 +383,14 @@ export default function Dashboard() {
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${brl(Number(value))}`}
                     >
-                      {categoryData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
+                      {(() => {
+                        let otherIndex = 0;
+                        return categoryData.map((entry, index) => {
+                          const color = getCategoryColor(entry.name, entry.name === "DIZIMO" ? 0 : otherIndex);
+                          if (entry.name !== "DIZIMO") otherIndex++;
+                          return <Cell key={`cell-${index}`} fill={color} />;
+                        });
+                      })()}
                     </Pie>
                     <Tooltip
                       formatter={(value: any) => brl(Number(value))}
