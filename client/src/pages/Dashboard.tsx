@@ -36,6 +36,21 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { monthRangeUTC } from "@/lib/dateRange";
 
 const COLORS = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"];
+const EXPENSE_COLORS = ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f43f5e", "#0ea5e9", "#a855f7", "#facc15"];
+
+const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  agua: "Água",
+  energia: "Energia",
+  internet: "Internet",
+  aluguel: "Aluguel",
+  material_limpeza: "Material de Limpeza",
+  evangelismo: "Evangelismo",
+  missoes: "Missões",
+  construcao: "Construção",
+  equipamentos: "Equipamentos",
+  manutencao: "Manutenção",
+  outras_despesas: "Outras Despesas",
+};
 const DIZIMO_COLOR = "#10b981";
 
 const getCategoryColor = (name: string, otherIndex: number) =>
@@ -147,6 +162,22 @@ export default function Dashboard() {
       value: Math.round(value) / 100,
     }));
   }, [entries]);
+
+  const expenseCategoryData = useMemo(() => {
+    if (!expenses) return [];
+
+    const categories: Record<string, number> = {};
+
+    expenses.forEach((expense) => {
+      const label = EXPENSE_CATEGORY_LABELS[expense.category] ?? expense.category;
+      categories[label] = (categories[label] || 0) + parseFloat(expense.amount) * 100;
+    });
+
+    return Object.entries(categories).map(([name, value]) => ({
+      name,
+      value: Math.round(value) / 100,
+    }));
+  }, [expenses]);
 
   const isLoading = entriesLoading || expensesLoading;
 
@@ -400,6 +431,50 @@ export default function Dashboard() {
                         fontSize: 13,
                       }}
                     />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  Nenhum dado disponível
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Gráfico de Pizza - Distribuição de Saídas por Categoria */}
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader>
+              <CardTitle>Distribuição de Saídas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {expenseCategoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={expenseCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, value, percent }) =>
+                        `${name}: ${brl(Number(value))} (${(Number(percent) * 100).toFixed(0)}%)`
+                      }
+                    >
+                      {expenseCategoryData.map((_, index) => (
+                        <Cell key={`expense-cell-${index}`} fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, name: any, props: any) =>
+                        [`${brl(Number(value))} (${(Number(props?.payload?.percent ?? 0) * 100).toFixed(0)}%)`, name]
+                      }
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid hsl(var(--border))",
+                        fontSize: 13,
+                      }}
+                    />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
