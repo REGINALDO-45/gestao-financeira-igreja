@@ -38,6 +38,10 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { BottomNav } from "./BottomNav";
+import { FullScreenFormSheet } from "./FullScreenFormSheet";
+import { EntryForm } from "./forms/EntryForm";
+import { ExpenseForm } from "./forms/ExpenseForm";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -134,6 +138,8 @@ function DashboardLayoutContent({
   const { state, toggleSidebar, setOpen } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
+  const [mobileEntryOpen, setMobileEntryOpen] = useState(false);
+  const [mobileExpenseOpen, setMobileExpenseOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
@@ -185,8 +191,9 @@ function DashboardLayoutContent({
   return (
     <>
       <div className="relative" ref={sidebarRef}>
+        {!isMobile && (
         <Sidebar
-          collapsible={isMobile ? "offcanvas" : "icon"}
+          collapsible="icon"
           className="border-r-0 bg-sidebar text-sidebar-foreground"
           disableTransition={isResizing}
         >
@@ -274,6 +281,7 @@ function DashboardLayoutContent({
             </div>
           </SidebarFooter>
         </Sidebar>
+        )}
 
         {/* Desktop resize handle */}
         {!isMobile && (
@@ -339,6 +347,21 @@ function DashboardLayoutContent({
 
         <main className="flex-1 p-3 sm:p-4 md:p-6">{children}</main>
       </SidebarInset>
+
+      {isMobile && (
+        <>
+          <BottomNav
+            onSelectEntry={() => setMobileEntryOpen(true)}
+            onSelectExpense={() => setMobileExpenseOpen(true)}
+          />
+          <FullScreenFormSheet open={mobileEntryOpen} onOpenChange={setMobileEntryOpen} title="Nova Entrada">
+            <EntryForm onSuccess={() => setMobileEntryOpen(false)} />
+          </FullScreenFormSheet>
+          <FullScreenFormSheet open={mobileExpenseOpen} onOpenChange={setMobileExpenseOpen} title="Nova Saída">
+            <ExpenseForm onSuccess={() => setMobileExpenseOpen(false)} />
+          </FullScreenFormSheet>
+        </>
+      )}
     </>
   );
 }
