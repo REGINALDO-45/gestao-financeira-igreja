@@ -11,6 +11,7 @@ import {
   iconHandHeart,
   iconCross,
   iconArrowDown,
+  iconWallet,
   tableRow,
   NAVY,
   RED,
@@ -22,9 +23,24 @@ import {
   GOLD
 } from "./core";
 
+// Estilo (cor/ícone) de cada categoria extra exibida em seção própria, na
+// mesma paleta usada no gráfico do Relatório Financeiro-Clerical.
+const CATEGORY_STYLES: Record<string, { color: [number, number, number]; icon: typeof iconPerson }> = {
+  "Oferta Especial":     { color: [59, 130, 246],  icon: iconHandHeart },
+  "Campanha":            { color: [147, 51, 234],  icon: iconCalendar },
+  "Missões":             { color: [219, 39, 119],  icon: iconHeart },
+  "Construção":          { color: [120, 53, 15],   icon: iconBank },
+  "Bazar":               { color: GOLD,            icon: iconWallet },
+  "Almoço Beneficente":  { color: [234, 88, 12],   icon: iconHeart },
+  "Cantina":             { color: [202, 138, 4],   icon: iconWallet },
+  "Doação":              { color: [13, 148, 136],  icon: iconHandHeart },
+  "Outras Receitas":     { color: GRAY3,            icon: iconArrowDown },
+};
+
 export const buildEntriesReport = async (
   tithes: { name: string; amount: number }[],
   offerings: { name: string; amount: number }[],
+  specialGroups: { label: string; rows: { name: string; amount: number }[] }[],
   refDate: string,
   depositDate: string,
   pastorName: string,
@@ -161,7 +177,8 @@ export const buildEntriesReport = async (
 
   const totalTithes = tithes.reduce((s, e) => s + e.amount, 0);
   const totalOfferings = offerings.reduce((s, e) => s + e.amount, 0);
-  const totalAll = totalTithes + totalOfferings;
+  const totalSpecial = specialGroups.reduce((s, g) => s + g.rows.reduce((s2, e) => s2 + e.amount, 0), 0);
+  const totalAll = totalTithes + totalOfferings + totalSpecial;
 
   // ── TABLE LAYOUT ──
   const colNum = 14;
@@ -238,6 +255,13 @@ export const buildEntriesReport = async (
   drawEntryTable("Dízimos", NAVY, iconHandHeart, "DIZIMISTA", tithes, totalTithes, "TOTAL DÍZIMOS", [239, 246, 255], NAVY);
   cur.y += 5;
   drawEntryTable("Ofertas", RED, iconHeart, "OFERTANTE", offerings, totalOfferings, "TOTAL OFERTAS", [255, 242, 242], RED);
+
+  specialGroups.forEach((g) => {
+    const groupTotal = g.rows.reduce((s, e) => s + e.amount, 0);
+    const style = CATEGORY_STYLES[g.label] ?? { color: GRAY3, icon: iconArrowDown };
+    cur.y += 5;
+    drawEntryTable(g.label, style.color, style.icon, "CONTRIBUINTE", g.rows, groupTotal, `TOTAL ${g.label.toUpperCase()}`, LIGHT, style.color);
+  });
   cur.y += 7;
 
   // ── GRAND TOTAL CARD ──

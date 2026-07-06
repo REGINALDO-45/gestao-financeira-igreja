@@ -100,10 +100,36 @@ export default function Reports() {
       };
       const tithes    = groupByName(entries.filter(e => e.category === "dizimo"), "Dizimista");
       const offerings = groupByName(entries.filter(e => e.category === "oferta"), "Ofertante");
+
+      // Categorias além de dízimo/oferta viram uma seção própria no relatório,
+      // uma para cada categoria, ao invés de serem omitidas.
+      const specialCategoryDefs: { key: string; label: string; fallback: string }[] = [
+        { key: "oferta_especial", label: "Oferta Especial", fallback: "Ofertante" },
+        { key: "campanha", label: "Campanha", fallback: "Contribuinte" },
+        { key: "missoes", label: "Missões", fallback: "Contribuinte" },
+        { key: "construcao", label: "Construção", fallback: "Contribuinte" },
+        { key: "bazar", label: "Bazar", fallback: "Contribuinte" },
+        { key: "almoco_beneficente", label: "Almoço Beneficente", fallback: "Contribuinte" },
+        { key: "cantina", label: "Cantina", fallback: "Contribuinte" },
+        { key: "doacao", label: "Doação", fallback: "Doador" },
+        { key: "outras_receitas", label: "Outras Receitas", fallback: "Contribuinte" },
+      ];
+      const specialGroups = specialCategoryDefs
+        .map(c => ({ label: c.label, rows: groupByName(entries.filter(e => e.category === c.key), c.fallback) }))
+        .filter(g => g.rows.length > 0);
+
       const d = new Date(startDate + "T12:00:00");
-      const wd = d.toLocaleDateString("pt-BR", { weekday: "long" });
+      // Quando a data cai num domingo, identifica qual domingo do mês é
+      // (Primeiro, Segundo, Terceiro...) ao invés de apenas "Domingo".
+      const SUNDAY_ORDINALS = ["", "Primeiro", "Segundo", "Terceiro", "Quarto", "Quinto"];
+      const weekdayLabel = d.getDay() === 0
+        ? `${SUNDAY_ORDINALS[Math.ceil(d.getDate() / 7)]} Domingo`
+        : (() => {
+            const wd = d.toLocaleDateString("pt-BR", { weekday: "long" });
+            return wd.charAt(0).toUpperCase() + wd.slice(1);
+          })();
       const mo = d.toLocaleDateString("pt-BR", { month: "long" });
-      const refDate = `${wd.charAt(0).toUpperCase() + wd.slice(1)}, ${d.getDate()} de ${mo.charAt(0).toUpperCase() + mo.slice(1)} de ${d.getFullYear()}`;
+      const refDate = `${weekdayLabel}, ${d.getDate()} de ${mo.charAt(0).toUpperCase() + mo.slice(1)} de ${d.getFullYear()}`;
       const nd = new Date(d); nd.setDate(d.getDate() + 1);
       const depositDate = nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
@@ -116,7 +142,7 @@ export default function Reports() {
         cotaDistrital: Math.round(prevTotal * 4) / 100,
       } : undefined;
 
-      const result = await buildEntriesReport(tithes, offerings, refDate, depositDate, pastorName, treasurerName, settings?.logoUrl, cotasData);
+      const result = await buildEntriesReport(tithes, offerings, specialGroups, refDate, depositDate, pastorName, treasurerName, settings?.logoUrl, cotasData);
       showPreview(result);
       toast.success("Relatório de Entradas gerado com sucesso!");
     } catch (error) {
@@ -179,10 +205,15 @@ export default function Reports() {
         balanceAvailable: Math.round((totalEntries - totalExpenses) * 100) / 100,
         dizimosTotal: safeSum(entries.filter(e => e.category === "dizimo")),
         ofertasTotal: safeSum(entries.filter(e => e.category === "oferta")),
-        ofertasEspeciaisTotal: safeSum(entries.filter(e => ["oferta_especial","campanha","missoes","construcao"].includes(e.category))),
+        ofertaEspecialTotal: safeSum(entries.filter(e => e.category === "oferta_especial")),
+        campanhaTotal: safeSum(entries.filter(e => e.category === "campanha")),
+        missoesTotal: safeSum(entries.filter(e => e.category === "missoes")),
+        construcaoTotal: safeSum(entries.filter(e => e.category === "construcao")),
         bazarTotal: safeSum(entries.filter(e => e.category === "bazar")),
-        almocoTotal: safeSum(entries.filter(e => ["almoco_beneficente","cantina"].includes(e.category))),
-        outrasEntradasTotal: safeSum(entries.filter(e => ["doacao","outras_receitas"].includes(e.category))),
+        almocoBeneficenteTotal: safeSum(entries.filter(e => e.category === "almoco_beneficente")),
+        cantinaTotal: safeSum(entries.filter(e => e.category === "cantina")),
+        doacaoTotal: safeSum(entries.filter(e => e.category === "doacao")),
+        outrasReceitasTotal: safeSum(entries.filter(e => e.category === "outras_receitas")),
         despesasFixasTotal: safeSum(expenses.filter(e => ["agua","energia","internet","aluguel"].includes(e.category))),
         despesasMinisteriaisTotal: safeSum(expenses.filter(e => ["evangelismo","missoes"].includes(e.category))),
         despesasAdminTotal: safeSum(expenses.filter(e => ["material_limpeza","manutencao","outras_despesas"].includes(e.category))),

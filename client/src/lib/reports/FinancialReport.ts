@@ -20,6 +20,7 @@ import {
   WHITE,
   LIGHT,
   GREEN,
+  GOLD,
   wrapText
 } from "./core";
 
@@ -33,10 +34,15 @@ export const buildFinancialReport = async (data: {
   balanceAvailable: number;
   dizimosTotal: number;
   ofertasTotal: number;
-  ofertasEspeciaisTotal: number;
+  ofertaEspecialTotal: number;
+  campanhaTotal: number;
+  missoesTotal: number;
+  construcaoTotal: number;
   bazarTotal: number;
-  almocoTotal: number;
-  outrasEntradasTotal: number;
+  almocoBeneficenteTotal: number;
+  cantinaTotal: number;
+  doacaoTotal: number;
+  outrasReceitasTotal: number;
   despesasFixasTotal: number;
   despesasMinisteriaisTotal: number;
   despesasAdminTotal: number;
@@ -175,12 +181,17 @@ export const buildFinancialReport = async (data: {
   const demoRows = [
     { label: "1. Saldo Anterior (Mês Ant.)", value: brl(data.prevMonthBalance), bold: true, bg: LIGHT },
     { label: "2. ENTRADAS", value: brl(data.totalEntries), bold: true, bg: [240,253,244] as [number,number,number], color: GREEN },
-    { label: "  2.1 Dízimos",            value: brl(data.dizimosTotal), bold: false, bg: WHITE },
-    { label: "  2.2 Ofertas",            value: brl(data.ofertasTotal), bold: false, bg: LIGHT },
-    { label: "  2.3 Ofertas Especiais",  value: brl(data.ofertasEspeciaisTotal), bold: false, bg: WHITE },
-    { label: "  2.4 Bazar",              value: brl(data.bazarTotal), bold: false, bg: LIGHT },
-    { label: "  2.5 Almoço Beneficente", value: brl(data.almocoTotal), bold: false, bg: WHITE },
-    { label: "  2.6 Outras Entradas",    value: brl(data.outrasEntradasTotal), bold: false, bg: LIGHT },
+    { label: "  2.1 Dízimos",             value: brl(data.dizimosTotal), bold: false, bg: WHITE },
+    { label: "  2.2 Ofertas",             value: brl(data.ofertasTotal), bold: false, bg: LIGHT },
+    { label: "  2.3 Oferta Especial",     value: brl(data.ofertaEspecialTotal), bold: false, bg: WHITE },
+    { label: "  2.4 Campanha",            value: brl(data.campanhaTotal), bold: false, bg: LIGHT },
+    { label: "  2.5 Missões",             value: brl(data.missoesTotal), bold: false, bg: WHITE },
+    { label: "  2.6 Construção",          value: brl(data.construcaoTotal), bold: false, bg: LIGHT },
+    { label: "  2.7 Bazar",               value: brl(data.bazarTotal), bold: false, bg: WHITE },
+    { label: "  2.8 Almoço Beneficente",  value: brl(data.almocoBeneficenteTotal), bold: false, bg: LIGHT },
+    { label: "  2.9 Cantina",             value: brl(data.cantinaTotal), bold: false, bg: WHITE },
+    { label: "  2.10 Doação",             value: brl(data.doacaoTotal), bold: false, bg: LIGHT },
+    { label: "  2.11 Outras Receitas",    value: brl(data.outrasReceitasTotal), bold: false, bg: WHITE },
     { label: "3. SAÍDAS", value: brl(data.totalExpenses), bold: true, bg: [255,242,242] as [number,number,number], color: RED },
     { label: "  3.1 Despesas Fixas",        value: brl(data.despesasFixasTotal), bold: false, bg: WHITE },
     { label: "  3.2 Desp. Ministeriais",    value: brl(data.despesasMinisteriaisTotal), bold: false, bg: LIGHT },
@@ -224,12 +235,18 @@ export const buildFinancialReport = async (data: {
   doc.text("RESUMO POR CATEGORIA", gapX + 3, chartY + 5);
 
   const categories = [
-    { label: "Dízimos",        value: data.dizimosTotal,                           color: GREEN },
-    { label: "Ofertas",        value: data.ofertasTotal,                           color: RED },
-    { label: "Esp./Campanhas", value: data.ofertasEspeciaisTotal,                  color: [59,130,246] as [number,number,number] },
-    { label: "Eventos",        value: data.bazarTotal + data.almocoTotal,          color: [245,158,11] as [number,number,number] },
-    { label: "Outros",         value: data.outrasEntradasTotal,                    color: GRAY3 },
-  ];
+    { label: "Dízimos",             value: data.dizimosTotal,           color: GREEN },
+    { label: "Ofertas",             value: data.ofertasTotal,           color: RED },
+    { label: "Oferta Especial",     value: data.ofertaEspecialTotal,    color: [59,130,246] as [number,number,number] },
+    { label: "Campanha",            value: data.campanhaTotal,          color: [147,51,234] as [number,number,number] },
+    { label: "Missões",             value: data.missoesTotal,           color: [219,39,119] as [number,number,number] },
+    { label: "Construção",          value: data.construcaoTotal,        color: [120,53,15] as [number,number,number] },
+    { label: "Bazar",               value: data.bazarTotal,             color: GOLD },
+    { label: "Almoço Beneficente",  value: data.almocoBeneficenteTotal, color: [234,88,12] as [number,number,number] },
+    { label: "Cantina",             value: data.cantinaTotal,           color: [202,138,4] as [number,number,number] },
+    { label: "Doação",              value: data.doacaoTotal,            color: [13,148,136] as [number,number,number] },
+    { label: "Outras Receitas",     value: data.outrasReceitasTotal,    color: GRAY3 },
+  ].filter((c) => c.value > 0);
   const totalCat = categories.reduce((s, c) => s + c.value, 0) || 1;
 
   const donutR = 14;
