@@ -11,6 +11,7 @@ import { recurringExpensesRouter } from "./routers/recurringExpenses";
 import { annualBudgetsRouter } from "./routers/annualBudgets";
 import { costCentersRouter } from "./routers/costCenters";
 import { receiptsRouter } from "./routers/receipts";
+import { goalsRouter } from "./routers/goals";
 
 export const appRouter = router({
   system: systemRouter,
@@ -33,6 +34,7 @@ export const appRouter = router({
   annualBudgets: annualBudgetsRouter,
   costCenters: costCentersRouter,
   receipts: receiptsRouter,
+  goals: goalsRouter,
 });
 
 export type AppRouter = typeof appRouter;

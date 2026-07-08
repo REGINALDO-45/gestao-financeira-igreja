@@ -30,6 +30,8 @@ export const memoryStore = {
   receipts: [] as any[],
   recurringExpenses: [] as any[],
   annualBudgets: [] as any[],
+  goals: [] as any[],
+  goalContributions: [] as any[],
 };
 
 export function setInitialized(val: boolean) {

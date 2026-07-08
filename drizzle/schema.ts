@@ -224,3 +224,45 @@ export const receipts = pgTable("receipts", {
 
 export type Receipt = typeof receipts.$inferSelect;
 export type InsertReceipt = typeof receipts.$inferInsert;
+
+export const goalStatusEnum = pgEnum("goal_status", [
+  "em_andamento",
+  "concluida",
+  "cancelada",
+]);
+
+/**
+ * Metas - projetos e campanhas financeiras da igreja (ex: reforma, fundo de missões).
+ * O valor arrecadado (currentAmount) é calculado automaticamente pela soma dos
+ * aportes registrados em goal_contributions, atualizado via transação a cada novo aporte.
+ */
+export const goals = pgTable("goals", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  targetAmount: decimal("targetAmount", { precision: 10, scale: 2 }).notNull(),
+  currentAmount: decimal("currentAmount", { precision: 10, scale: 2 }).default("0").notNull(),
+  deadline: date("deadline", { mode: "date" }),
+  status: goalStatusEnum("status").default("em_andamento").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type Goal = typeof goals.$inferSelect;
+export type InsertGoal = typeof goals.$inferInsert;
+
+/**
+ * Aportes - registros individuais de contribuição para uma meta (data, valor, descrição).
+ * A soma dos aportes de uma meta é refletida em goals.currentAmount.
+ */
+export const goalContributions = pgTable("goal_contributions", {
+  id: serial("id").primaryKey(),
+  goalId: integer("goalId").notNull().references(() => goals.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  contributionDate: date("contributionDate", { mode: "date" }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type GoalContribution = typeof goalContributions.$inferSelect;
+export type InsertGoalContribution = typeof goalContributions.$inferInsert;

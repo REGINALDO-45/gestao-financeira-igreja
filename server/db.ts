@@ -9,3 +9,5 @@ export * from "./db/recurringExpenses";
 export * from "./db/annualBudgets";
 export * from "./db/costCenters";
 export * from "./db/receipts";
+export * from "./db/goals";
+export * from "./db/goalContributions";

@@ -33,6 +33,7 @@ import {
   ChurchIcon,
   Banknote,
   Target,
+  Trophy,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -50,6 +51,7 @@ const menuItems = [
   { icon: Users, label: "Membros", path: "/members" },
   { icon: Banknote, label: "Centros de Custo", path: "/cost-centers" },
   { icon: Target, label: "Orçamento Anual", path: "/annual-budget" },
+  { icon: Trophy, label: "Metas", path: "/goals" },
   { icon: FileText, label: "Relatórios", path: "/reports" },
   { icon: Receipt, label: "Recibos", path: "/receipts" },
   { icon: Settings, label: "Configurações", path: "/settings" },
