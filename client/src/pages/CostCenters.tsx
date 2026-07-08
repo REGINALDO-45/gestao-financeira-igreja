@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,13 +24,46 @@ import { Loader2, Plus, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/useMobile";
 
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
 export default function CostCenters() {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const isMobile = useIsMobile();
 
   const { data: costCenters, isLoading } = trpc.costCenters.list.useQuery();
+  const { data: entries, isLoading: entriesLoading } = trpc.entries.list.useQuery();
+  const { data: expenses, isLoading: expensesLoading } = trpc.expenses.list.useQuery();
   const createCostCenter = trpc.costCenters.create.useMutation();
+
+  const costCenterTotals = useMemo(() => {
+    if (!costCenters) return [];
+    const totalsMap = new Map<number, { entradas: number; saidas: number }>();
+    costCenters.forEach((cc) => totalsMap.set(cc.id, { entradas: 0, saidas: 0 }));
+
+    (entries ?? []).forEach((entry) => {
+      if (entry.costCenterId == null) return;
+      const bucket = totalsMap.get(entry.costCenterId);
+      if (bucket) bucket.entradas += parseFloat(entry.amount);
+    });
+    (expenses ?? []).forEach((expense) => {
+      if (expense.costCenterId == null) return;
+      const bucket = totalsMap.get(expense.costCenterId);
+      if (bucket) bucket.saidas += parseFloat(expense.amount);
+    });
+
+    return costCenters.map((cc) => {
+      const { entradas, saidas } = totalsMap.get(cc.id)!;
+      return {
+        id: cc.id,
+        name: cc.name,
+        entradas: Math.round(entradas * 100) / 100,
+        saidas: Math.round(saidas * 100) / 100,
+        saldo: Math.round((entradas - saidas) * 100) / 100,
+      };
+    });
+  }, [costCenters, entries, expenses]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +85,7 @@ export default function CostCenters() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || entriesLoading || expensesLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -111,6 +144,45 @@ export default function CostCenters() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Totais por Centro de Custo */}
+        {costCenterTotals.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {costCenterTotals.map((cc) => (
+              <Card key={cc.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm sm:text-base truncate">{cc.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Entradas</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {brl(cc.entradas)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Saídas</span>
+                    <span className="font-semibold text-red-600 dark:text-red-400">
+                      {brl(cc.saidas)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm pt-1 border-t">
+                    <span className="text-muted-foreground">Saldo</span>
+                    <span
+                      className={`font-bold ${
+                        cc.saldo >= 0
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {brl(cc.saldo)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <Card>
           <CardHeader className="pb-3">
