@@ -29,7 +29,7 @@ export const memoryStore = {
   costCenters: [] as any[],
   receipts: [] as any[],
   recurringExpenses: [] as any[],
-  annualBudgets: [] as any[],
+  budgetLines: [] as any[],
   goals: [] as any[],
   goalContributions: [] as any[],
 };
