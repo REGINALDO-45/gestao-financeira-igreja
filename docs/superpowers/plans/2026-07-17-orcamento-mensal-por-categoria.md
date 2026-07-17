@@ -1065,6 +1065,135 @@ git commit -m "feat: rewrite Orçamento Anual page for per-month per-category bu
 
 ---
 
+## Task 8b: Fix `Dashboard.tsx` and `Reports.tsx` — other consumers of the old budget API
+
+**Gap discovered mid-implementation:** the original plan only accounted for `client/src/pages/AnnualBudget.tsx` as a consumer of `trpc.annualBudgets.getByYear`. Task 5's implementer found two more call sites that also broke when the router was renamed: `client/src/pages/Dashboard.tsx:105` (a monthly goal card on the main dashboard) and `client/src/pages/Reports.tsx:79,248-249` (the annual PDF report's monthly goal column). Both need to move to `trpc.budgetLines.getByYear` and derive their monthly totals via `getMonthlyOrcadoTotals` from `@/lib/budgetMath` (Task 7), the same way the rewritten `AnnualBudget.tsx` does.
+
+**Files:**
+- Modify: `client/src/pages/Dashboard.tsx:105,241-244`
+- Modify: `client/src/pages/Reports.tsx:79,248-249`
+
+**Interfaces:**
+- Consumes: `trpc.budgetLines.getByYear.useQuery({ year })` (Task 5), `getMonthlyOrcadoTotals` from `@/lib/budgetMath` (Task 7).
+
+- [ ] **Step 1: Fix `client/src/pages/Dashboard.tsx`**
+
+Add the import (alongside the existing `dashboardMath` import):
+
+```ts
+import { getMonthlyOrcadoTotals } from "@/lib/budgetMath";
+```
+
+Find (around line 94-105):
+
+```ts
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
+  const [chartView, setChartView] = useState<"mensal" | "semanal">("mensal");
+
+  const dateRange = useMemo(() => {
+    const [y, m] = selectedMonth.split("-").map(Number);
+    return monthRangeUTC(y, m - 1);
+  }, [selectedMonth]);
+
+  const { data: entries, isLoading: entriesLoading } = trpc.entries.listByDateRange.useQuery(dateRange);
+  const { data: expenses, isLoading: expensesLoading } = trpc.expenses.listByDateRange.useQuery(dateRange);
+  const selectedYear = parseInt(selectedMonth.split("-")[0], 10);
+  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: selectedYear });
+```
+
+Replace the last two lines with:
+
+```ts
+  const selectedYear = parseInt(selectedMonth.split("-")[0], 10);
+  const selectedMonthNum = parseInt(selectedMonth.split("-")[1], 10);
+  const { data: budgetLines } = trpc.budgetLines.getByYear.useQuery({ year: selectedYear });
+```
+
+Find (around line 239-244):
+
+```ts
+  const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
+  const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+```
+
+Replace with:
+
+```ts
+  const monthlyOrcado = useMemo(() => getMonthlyOrcadoTotals(budgetLines ?? []), [budgetLines]);
+  const monthlyEntriesGoal = monthlyOrcado[selectedMonthNum]?.entrada ?? 0;
+  const monthlyExpensesGoal = monthlyOrcado[selectedMonthNum]?.despesa ?? 0;
+```
+
+- [ ] **Step 2: Fix `client/src/pages/Reports.tsx`**
+
+Add the import (alongside other `@/lib/*` imports):
+
+```ts
+import { getMonthlyOrcadoTotals } from "@/lib/budgetMath";
+```
+
+Find (around line 79):
+
+```ts
+  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: reportYear }, { enabled: reportType === "annual" });
+```
+
+Replace with:
+
+```ts
+  const { data: budgetLines } = trpc.budgetLines.getByYear.useQuery({ year: reportYear }, { enabled: reportType === "annual" });
+```
+
+Find (around line 248-259):
+
+```ts
+      const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
+      const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+      const sumAmounts = (items: { amount: string }[]) =>
+        Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
+      const monthlyData = MONTH_NAMES.map((name, monthIndex) => ({
+        name,
+        entriesRealized: sumAmounts(yearEntries.filter(e => new Date(e.entryDate).getUTCMonth() === monthIndex)),
+        entriesGoal: monthlyEntriesGoal,
+        expensesRealized: sumAmounts(yearExpenses.filter(e => new Date(e.expenseDate).getUTCMonth() === monthIndex)),
+        expensesGoal: monthlyExpensesGoal,
+      }));
+```
+
+Replace with:
+
+```ts
+      const monthlyOrcado = getMonthlyOrcadoTotals(budgetLines ?? []);
+      const sumAmounts = (items: { amount: string }[]) =>
+        Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
+
+      const monthlyData = MONTH_NAMES.map((name, monthIndex) => ({
+        name,
+        entriesRealized: sumAmounts(yearEntries.filter(e => new Date(e.entryDate).getUTCMonth() === monthIndex)),
+        entriesGoal: monthlyOrcado[monthIndex + 1]?.entrada ?? 0,
+        expensesRealized: sumAmounts(yearExpenses.filter(e => new Date(e.expenseDate).getUTCMonth() === monthIndex)),
+        expensesGoal: monthlyOrcado[monthIndex + 1]?.despesa ?? 0,
+      }));
+```
+
+- [ ] **Step 3: Verify types and existing tests**
+
+Run: `npx tsc --noEmit -p tsconfig.json`
+Expected: zero errors anywhere in the project (this closes the gap Task 5 flagged — no file should reference `trpc.annualBudgets` or `annualBudget?.monthly*Goal` anymore).
+
+Run: `npx vitest run`
+Expected: all existing tests still pass (this task doesn't add new tests — `Dashboard.tsx`/`Reports.tsx` have no existing dedicated test files to update).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add client/src/pages/Dashboard.tsx client/src/pages/Reports.tsx
+git commit -m "fix: migrate Dashboard and Reports off the old annualBudgets API"
+```
+
+---
+
 ## Task 9: Manual browser verification
 
 **Files:** none (verification only)
