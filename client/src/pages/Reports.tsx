@@ -18,6 +18,7 @@ import { buildEntriesReport } from "@/lib/reports/EntriesReport";
 import { buildFinancialReport } from "@/lib/reports/FinancialReport";
 import { buildAnnualReport } from "@/lib/reports/AnnualReport";
 import { utcDayStart, utcDayEnd, monthRangeUTC, yearRangeUTC } from "@/lib/dateRange";
+import { getMonthlyOrcadoTotals } from "@/lib/budgetMath";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -76,7 +77,7 @@ export default function Reports() {
 
   const { data: yearEntries } = trpc.entries.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
   const { data: yearExpenses } = trpc.expenses.listByDateRange.useQuery(yearRange, { enabled: reportType === "annual" });
-  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: reportYear }, { enabled: reportType === "annual" });
+  const { data: budgetLines } = trpc.budgetLines.getByYear.useQuery({ year: reportYear }, { enabled: reportType === "annual" });
 
   const pastorName    = settings?.pastorName    ?? "Pr. Reginaldo Medeiros";
   const treasurerName = settings?.treasurerName ?? "Ageovany";
@@ -245,17 +246,16 @@ export default function Reports() {
     try {
       if (!yearEntries || !yearExpenses) throw new Error("Nenhum dado encontrado para o ano selecionado");
 
-      const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
-      const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+      const monthlyOrcado = getMonthlyOrcadoTotals(budgetLines ?? []);
       const sumAmounts = (items: { amount: string }[]) =>
         Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
 
       const monthlyData = MONTH_NAMES.map((name, monthIndex) => ({
         name,
         entriesRealized: sumAmounts(yearEntries.filter(e => new Date(e.entryDate).getUTCMonth() === monthIndex)),
-        entriesGoal: monthlyEntriesGoal,
+        entriesGoal: monthlyOrcado[monthIndex + 1]?.entrada ?? 0,
         expensesRealized: sumAmounts(yearExpenses.filter(e => new Date(e.expenseDate).getUTCMonth() === monthIndex)),
-        expensesGoal: monthlyExpensesGoal,
+        expensesGoal: monthlyOrcado[monthIndex + 1]?.despesa ?? 0,
       }));
 
       const result = await buildAnnualReport({

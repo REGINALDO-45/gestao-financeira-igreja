@@ -41,6 +41,7 @@ import { ExpensesByCategoryBars } from "@/components/dashboard/ExpensesByCategor
 import { RecentMovements } from "@/components/dashboard/RecentMovements";
 import { MobileBalanceCard } from "@/components/dashboard/MobileBalanceCard";
 import { calculateExpenseSharePct, buildRecentMovements, getGoalCardData } from "@/lib/dashboardMath";
+import { getMonthlyOrcadoTotals } from "@/lib/budgetMath";
 import { useIsMobile } from "@/hooks/useMobile";
 
 const COLORS = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"];
@@ -102,7 +103,8 @@ export default function Dashboard() {
   const { data: entries, isLoading: entriesLoading } = trpc.entries.listByDateRange.useQuery(dateRange);
   const { data: expenses, isLoading: expensesLoading } = trpc.expenses.listByDateRange.useQuery(dateRange);
   const selectedYear = parseInt(selectedMonth.split("-")[0], 10);
-  const { data: annualBudget } = trpc.annualBudgets.getByYear.useQuery({ year: selectedYear });
+  const selectedMonthNum = parseInt(selectedMonth.split("-")[1], 10);
+  const { data: budgetLines } = trpc.budgetLines.getByYear.useQuery({ year: selectedYear });
 
   const stats = useMemo(() => {
     if (!entries || !expenses) return null;
@@ -238,8 +240,9 @@ export default function Dashboard() {
 
   const balancePositive = (stats?.balance || 0) >= 0;
 
-  const monthlyEntriesGoal = parseFloat(annualBudget?.monthlyEntriesGoal ?? "0") || 0;
-  const monthlyExpensesGoal = parseFloat(annualBudget?.monthlyExpensesGoal ?? "0") || 0;
+  const monthlyOrcado = useMemo(() => getMonthlyOrcadoTotals(budgetLines ?? []), [budgetLines]);
+  const monthlyEntriesGoal = monthlyOrcado[selectedMonthNum]?.entrada ?? 0;
+  const monthlyExpensesGoal = monthlyOrcado[selectedMonthNum]?.despesa ?? 0;
   const entriesGoalPct = monthlyEntriesGoal > 0 ? ((stats?.totalEntries || 0) / monthlyEntriesGoal) * 100 : null;
   const expensesGoalPct = monthlyExpensesGoal > 0 ? ((stats?.totalExpenses || 0) / monthlyExpensesGoal) * 100 : null;
 
