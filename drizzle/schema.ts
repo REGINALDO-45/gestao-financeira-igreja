@@ -9,6 +9,7 @@ import {
   decimal,
   date,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ─────────────────────────────────────────────────────────
@@ -191,20 +192,31 @@ export type RecurringExpense = typeof recurringExpenses.$inferSelect;
 export type InsertRecurringExpense = typeof recurringExpenses.$inferInsert;
 
 /**
- * Orçamento Anual - metas mensais de entradas e despesas por ano, usadas para
- * acompanhar o percentual realizado em relação ao orçado.
+ * Orçamento Mensal por Categoria - valor orçado de cada categoria de entrada/despesa,
+ * por mês e ano. O total orçado de um mês é a soma das linhas daquele (year, month, type).
  */
-export const annualBudgets = pgTable("annual_budgets", {
+export const budgetLineTypeEnum = pgEnum("budget_line_type", ["entrada", "despesa"]);
+
+export const budgetLines = pgTable("budget_lines", {
   id: serial("id").primaryKey(),
-  year: integer("year").notNull().unique(),
-  monthlyEntriesGoal: decimal("monthlyEntriesGoal", { precision: 10, scale: 2 }).notNull(),
-  monthlyExpensesGoal: decimal("monthlyExpensesGoal", { precision: 10, scale: 2 }).notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  type: budgetLineTypeEnum("type").notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
-});
+}, (table) => ({
+  yearMonthTypeCategoryUnique: uniqueIndex("budget_lines_year_month_type_category_unique").on(
+    table.year,
+    table.month,
+    table.type,
+    table.category
+  ),
+}));
 
-export type AnnualBudget = typeof annualBudgets.$inferSelect;
-export type InsertAnnualBudget = typeof annualBudgets.$inferInsert;
+export type BudgetLine = typeof budgetLines.$inferSelect;
+export type InsertBudgetLine = typeof budgetLines.$inferInsert;
 
 /**
  * Recibos - registros de recibos gerados para contribuições
