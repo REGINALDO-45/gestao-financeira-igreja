@@ -226,6 +226,8 @@ export default function Dashboard() {
     [entries, expenses]
   );
 
+  const monthlyOrcado = useMemo(() => getMonthlyOrcadoTotals(budgetLines ?? []), [budgetLines]);
+
   const isLoading = entriesLoading || expensesLoading;
 
   if (isLoading) {
@@ -240,7 +242,6 @@ export default function Dashboard() {
 
   const balancePositive = (stats?.balance || 0) >= 0;
 
-  const monthlyOrcado = useMemo(() => getMonthlyOrcadoTotals(budgetLines ?? []), [budgetLines]);
   const monthlyEntriesGoal = monthlyOrcado[selectedMonthNum]?.entrada ?? 0;
   const monthlyExpensesGoal = monthlyOrcado[selectedMonthNum]?.despesa ?? 0;
   const entriesGoalPct = monthlyEntriesGoal > 0 ? ((stats?.totalEntries || 0) / monthlyEntriesGoal) * 100 : null;

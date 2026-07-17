@@ -57,7 +57,7 @@ export async function upsertMonthBudgetLines(input: {
       .values({ year, month, type, category: line.category, amount: line.amount })
       .onConflictDoUpdate({
         target: [budgetLines.year, budgetLines.month, budgetLines.type, budgetLines.category],
-        set: { amount: line.amount },
+        set: { amount: line.amount, updatedAt: new Date() },
       });
   }
   const saved = await db
