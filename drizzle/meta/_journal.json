@@ -43,6 +43,13 @@
       "when": 1783546778678,
       "tag": "0005_reflective_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784325435204,
+      "tag": "0006_daffy_nebula",
+      "breakpoints": true
     }
   ]
 }
