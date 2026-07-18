@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGuard, isTreasurer } from "@/hooks/useAuthGuard";
 import { yearRangeUTC } from "@/lib/dateRange";
-import { getMonthlyOrcadoTotals, getCategoryAmountsForMonth, type BudgetLineLike } from "@/lib/budgetMath";
+import { getMonthlyOrcadoTotals, getCategoryAmountsForMonth, getCustomLines, type BudgetLineLike } from "@/lib/budgetMath";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -55,6 +55,14 @@ const EXPENSE_CATEGORIES: { value: string; label: string }[] = [
   { value: "outras_despesas", label: "Outras Despesas" },
 ];
 
+const EXPENSE_CATEGORY_VALUES = EXPENSE_CATEGORIES.map((c) => c.value);
+
+interface CustomExpenseLine {
+  id: string;
+  category: string;
+  amount: string;
+}
+
 const sumAmounts = (items: { amount: string }[]) =>
   Math.round(items.reduce((s, e) => s + parseFloat(e.amount) * 100, 0)) / 100;
 
@@ -64,6 +72,7 @@ export default function AnnualBudget() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [entryAmounts, setEntryAmounts] = useState<Record<string, string>>({});
   const [expenseAmounts, setExpenseAmounts] = useState<Record<string, string>>({});
+  const [customExpenses, setCustomExpenses] = useState<CustomExpenseLine[]>([]);
 
   const yearRange = useMemo(() => yearRangeUTC(year), [year]);
 
@@ -77,7 +86,14 @@ export default function AnnualBudget() {
 
   useEffect(() => {
     setEntryAmounts(getCategoryAmountsForMonth(lines, selectedMonth, "entrada"));
-    setExpenseAmounts(getCategoryAmountsForMonth(lines, selectedMonth, "despesa"));
+    const monthExpenseAmounts = getCategoryAmountsForMonth(lines, selectedMonth, "despesa");
+    setExpenseAmounts(monthExpenseAmounts);
+    setCustomExpenses(
+      getCustomLines(monthExpenseAmounts, EXPENSE_CATEGORY_VALUES).map((c) => ({
+        id: crypto.randomUUID(),
+        ...c,
+      }))
+    );
   }, [lines, selectedMonth]);
 
   const monthlyOrcado = useMemo(() => getMonthlyOrcadoTotals(lines), [lines]);
@@ -112,12 +128,49 @@ export default function AnnualBudget() {
     () => Object.values(entryAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0),
     [entryAmounts]
   );
-  const expenseTotal = useMemo(
-    () => Object.values(expenseAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0),
+  const fixedExpenseTotal = useMemo(
+    () => EXPENSE_CATEGORIES.reduce((s, c) => s + (parseFloat(expenseAmounts[c.value]) || 0), 0),
     [expenseAmounts]
   );
+  const customExpenseTotal = useMemo(
+    () => customExpenses.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0),
+    [customExpenses]
+  );
+  const expenseTotal = fixedExpenseTotal + customExpenseTotal;
+
+  const handleAddCustomExpense = () => {
+    setCustomExpenses(prev => [...prev, { id: crypto.randomUUID(), category: "", amount: "" }]);
+  };
+
+  const handleCustomExpenseChange = (id: string, field: "category" | "amount", value: string) => {
+    setCustomExpenses(prev => prev.map(item => (item.id === id ? { ...item, [field]: value } : item)));
+  };
+
+  const handleRemoveCustomExpense = (id: string) => {
+    setCustomExpenses(prev => prev.filter(item => item.id !== id));
+  };
 
   const handleSaveMonth = async () => {
+    const trimmedCustoms = customExpenses
+      .map(c => ({ category: c.category.trim(), amount: c.amount || "0" }))
+      .filter(c => c.category.length > 0);
+
+    for (const c of trimmedCustoms) {
+      if (c.category.length > 50) {
+        toast.error(`Descrição muito longa (máx. 50 caracteres): "${c.category}"`);
+        return;
+      }
+    }
+
+    const seen = new Set<string>();
+    for (const c of trimmedCustoms) {
+      if (seen.has(c.category)) {
+        toast.error(`Descrição de despesa duplicada: "${c.category}"`);
+        return;
+      }
+      seen.add(c.category);
+    }
+
     try {
       await Promise.all([
         upsertMonth.mutateAsync({
@@ -130,7 +183,10 @@ export default function AnnualBudget() {
           year,
           month: selectedMonth,
           type: "despesa",
-          lines: EXPENSE_CATEGORIES.map(c => ({ category: c.value, amount: expenseAmounts[c.value] || "0" })),
+          lines: [
+            ...EXPENSE_CATEGORIES.map(c => ({ category: c.value, amount: expenseAmounts[c.value] || "0" })),
+            ...trimmedCustoms,
+          ],
         }),
       ]);
       utils.budgetLines.getByYear.invalidate({ year });
@@ -240,6 +296,48 @@ export default function AnnualBudget() {
                       />
                     </div>
                   ))}
+
+                  <div className="pt-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-muted-foreground">Despesas Adicionais</h4>
+                      {canEdit && (
+                        <Button type="button" size="sm" variant="outline" onClick={handleAddCustomExpense}>
+                          <Plus className="w-4 h-4 mr-1" /> Adicionar despesa
+                        </Button>
+                      )}
+                    </div>
+                    {customExpenses.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <Input
+                          placeholder="Descrição"
+                          className="flex-1"
+                          maxLength={50}
+                          value={item.category}
+                          onChange={(e) => handleCustomExpenseChange(item.id, "category", e.target.value)}
+                          disabled={!canEdit}
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="w-32"
+                          value={item.amount}
+                          onChange={(e) => handleCustomExpenseChange(item.id, "amount", e.target.value)}
+                          disabled={!canEdit}
+                        />
+                        {canEdit && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleRemoveCustomExpense(item.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
                   <div className="flex items-center justify-between gap-3 font-bold pt-2 border-t">
                     <span>Total Despesas</span>
                     <span>R$ {expenseTotal.toFixed(2)}</span>
