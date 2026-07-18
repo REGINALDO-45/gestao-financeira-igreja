@@ -39,3 +39,12 @@ export function getCategoryAmountsForMonth(
   }
   return result;
 }
+
+export function getCustomLines(
+  amounts: Record<string, string>,
+  fixedCategories: string[]
+): { category: string; amount: string }[] {
+  return Object.entries(amounts)
+    .filter(([category]) => !fixedCategories.includes(category))
+    .map(([category, amount]) => ({ category, amount }));
+}
