@@ -3,7 +3,7 @@ import * as db from "../db";
 import { protectedProcedure, router, treasurerProcedure } from "../_core/trpc";
 
 const budgetLineInput = z.object({
-  category: z.string(),
+  category: z.string().max(50),
   amount: z.string(),
 });
 

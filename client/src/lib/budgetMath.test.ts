@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMonthlyOrcadoTotals, getCategoryAmountsForMonth } from "./budgetMath";
+import { getMonthlyOrcadoTotals, getCategoryAmountsForMonth, getCustomLines } from "./budgetMath";
 
 describe("getMonthlyOrcadoTotals", () => {
   it("sums amounts per month and type, defaulting missing months to zero", () => {
@@ -27,5 +27,22 @@ describe("getCategoryAmountsForMonth", () => {
     expect(getCategoryAmountsForMonth(lines, 1, "entrada")).toEqual({ dizimo: "9000.00" });
     expect(getCategoryAmountsForMonth(lines, 1, "despesa")).toEqual({ agua: "80.00" });
     expect(getCategoryAmountsForMonth(lines, 3, "entrada")).toEqual({});
+  });
+});
+
+describe("getCustomLines", () => {
+  it("returns only categories not present in the fixed list", () => {
+    const amounts = { agua: "80.00", "Subsídio Pastoral": "4000.00", energia: "100.00" };
+    const result = getCustomLines(amounts, ["agua", "energia"]);
+    expect(result).toEqual([{ category: "Subsídio Pastoral", amount: "4000.00" }]);
+  });
+
+  it("returns an empty array when every category is fixed", () => {
+    const amounts = { agua: "80.00", energia: "100.00" };
+    expect(getCustomLines(amounts, ["agua", "energia"])).toEqual([]);
+  });
+
+  it("returns an empty array for an empty amounts map", () => {
+    expect(getCustomLines({}, ["agua"])).toEqual([]);
   });
 });
