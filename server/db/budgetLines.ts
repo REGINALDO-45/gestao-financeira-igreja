@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { budgetLines, type BudgetLine } from "../../drizzle/schema";
 import { getDb, memoryStore } from "./core";
 import { ensureInitialized } from "./seed";
@@ -22,8 +22,13 @@ export async function upsertMonthBudgetLines(input: {
   await ensureInitialized();
   const db = await getDb();
   const { year, month, type, lines } = input;
+  const categories = lines.map((l) => l.category);
 
   if (!db) {
+    memoryStore.budgetLines = memoryStore.budgetLines.filter(
+      (b) => !(b.year === year && b.month === month && b.type === type && !categories.includes(b.category))
+    );
+
     const results: BudgetLine[] = [];
     for (const line of lines) {
       const existing = memoryStore.budgetLines.find(
@@ -33,8 +38,9 @@ export async function upsertMonthBudgetLines(input: {
         Object.assign(existing, { amount: line.amount, updatedAt: new Date() });
         results.push(existing);
       } else {
+        const nextId = memoryStore.budgetLines.reduce((max, b) => Math.max(max, b.id), 0) + 1;
         const newItem = {
-          id: memoryStore.budgetLines.length + 1,
+          id: nextId,
           year,
           month,
           type,
@@ -48,6 +54,23 @@ export async function upsertMonthBudgetLines(input: {
       }
     }
     return results;
+  }
+
+  if (categories.length > 0) {
+    await db
+      .delete(budgetLines)
+      .where(
+        and(
+          eq(budgetLines.year, year),
+          eq(budgetLines.month, month),
+          eq(budgetLines.type, type),
+          notInArray(budgetLines.category, categories)
+        )
+      );
+  } else {
+    await db
+      .delete(budgetLines)
+      .where(and(eq(budgetLines.year, year), eq(budgetLines.month, month), eq(budgetLines.type, type)));
   }
 
   const results: BudgetLine[] = [];
